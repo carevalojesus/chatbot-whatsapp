@@ -12,14 +12,17 @@ function mapOrder(id: string, data: DocumentData): Order {
   return {
     id,
     chatId: data.chatId,
+    customerId: data.customerId,
     customerName: data.customerName,
     items: data.items ?? [],
     deliveryType: data.deliveryType,
     address: data.address,
+    addressAlias: data.addressAlias,
     subtotal: data.subtotal,
     deliveryFee: data.deliveryFee,
     total: data.total,
     status: data.status as OrderStatus,
+    cancelledBy: data.cancelledBy,
     createdAt:
       createdAt instanceof Timestamp
         ? createdAt.toDate()
@@ -97,4 +100,33 @@ export async function getPendingOrders(): Promise<Order[]> {
     .get();
 
   return snap.docs.map((doc) => mapOrder(doc.id, doc.data()));
+}
+
+export async function cancelOrder(
+  orderId: string,
+  by: "cliente" | "admin",
+): Promise<Order | undefined> {
+  const ref = ordersCollection(getDb()).doc(orderId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    return undefined;
+  }
+
+  const current = mapOrder(snap.id, snap.data()!);
+  if (current.status !== "pendiente") {
+    return undefined;
+  }
+
+  await ref.update({
+    status: "cancelado",
+    cancelledBy: by,
+    cancelledAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return mapOrder(snap.id, {
+    ...snap.data()!,
+    status: "cancelado",
+    cancelledBy: by,
+  });
 }

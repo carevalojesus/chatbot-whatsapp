@@ -11,6 +11,7 @@ import {
 function mapSession(data: DocumentData): UserSession {
   return {
     chatId: data.chatId,
+    customerId: data.customerId,
     customerName: data.customerName,
     state: data.state,
     cart: data.cart ?? [],
@@ -18,6 +19,10 @@ function mapSession(data: DocumentData): UserSession {
     pendingItemIndex: data.pendingItemIndex,
     deliveryType: data.deliveryType,
     address: data.address,
+    addressAlias: data.addressAlias,
+    selectedOrderId: data.selectedOrderId,
+    pendingAddressAlias: data.pendingAddressAlias,
+    pendingAddressLine: data.pendingAddressLine,
   };
 }
 

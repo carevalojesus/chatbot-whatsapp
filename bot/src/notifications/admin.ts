@@ -41,3 +41,21 @@ restaurants → orders → #${order.id} → status`;
     console.error("No se pudo notificar al admin:", error);
   }
 }
+
+export async function notifyAdminOrderCancelled(order: Order): Promise<void> {
+  const adminId = getAdminWhatsAppId();
+  if (!adminId) return;
+
+  const by = order.cancelledBy === "admin" ? "admin" : "cliente";
+  const text = `❌ *Pedido #${order.id} cancelado*
+
+Cancelado por: ${by}
+Cliente: ${order.customerName ?? "—"}
+Total: ${formatCurrency(order.total)}`;
+
+  try {
+    await sendTextMessage(adminId, text);
+  } catch (error) {
+    console.error("No se pudo notificar cancelación al admin:", error);
+  }
+}

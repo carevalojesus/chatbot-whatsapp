@@ -1,4 +1,5 @@
 import {
+  cancelOrder,
   getOrder,
   getPendingOrders,
   updateOrderStatus,
@@ -22,13 +23,15 @@ function helpText(): string {
 /pedidos — Ver pedidos pendientes
 /confirmar [número] — Marcar en preparación y avisar al cliente
 /listo [número] — Marcar entregado y avisar al cliente
+/cancelar [número] — Cancelar pedido pendiente y avisar al cliente
 /ver [número] — Ver detalle de un pedido
 /ayuda — Mostrar esta ayuda
 
 Ejemplos:
   /pedidos
   /confirmar 1001
-  /listo 1001`;
+  /listo 1001
+  /cancelar 1001`;
 }
 
 export function getAdminHelpText(): string {
@@ -58,12 +61,14 @@ export async function handleAdminCommand(
       return handleStatusChange(parsed.orderId, "confirmado");
     case "listo":
       return handleStatusChange(parsed.orderId, "entregado");
+    case "cancelar":
+      return handleCancelOrder(parsed.orderId);
     default:
       return { reply: helpText() };
   }
 }
 
-type AdminCommand = "pedidos" | "confirmar" | "listo" | "ver" | "ayuda";
+type AdminCommand = "pedidos" | "confirmar" | "listo" | "cancelar" | "ver" | "ayuda";
 
 function parseAdminCommand(text: string): {
   command: AdminCommand;
@@ -81,14 +86,14 @@ function parseAdminCommand(text: string): {
   }
 
   const withSlash = trimmed.match(
-    /^\/(pedidos|confirmar|listo|entregado|ver|ayuda)(?:\s+#?(\d+))?$/i,
+    /^\/(pedidos|confirmar|listo|entregado|cancelar|ver|ayuda)(?:\s+#?(\d+))?$/i,
   );
   if (withSlash) {
     return mapCommand(withSlash[1], withSlash[2]);
   }
 
   const withoutSlash = normalized.match(
-    /^(pedidos|confirmar|listo|entregado|ver)(?:\s+#?(\d+))?$/,
+    /^(pedidos|confirmar|listo|entregado|cancelar|ver)(?:\s+#?(\d+))?$/,
   );
   if (withoutSlash) {
     return mapCommand(withoutSlash[1], withoutSlash[2]);
@@ -123,6 +128,10 @@ function mapCommand(
     return { command: "listo", orderId };
   }
 
+  if (cmd === "cancelar") {
+    return { command: "cancelar", orderId };
+  }
+
   if (cmd === "ver") {
     return { command: "ver", orderId };
   }
@@ -143,7 +152,7 @@ async function formatPendingOrders(): Promise<string> {
     lines.push(formatOrderLine(order));
   });
 
-  lines.push("\nUsa */confirmar [número]* o */listo [número]*");
+  lines.push("\nUsa */confirmar*, */listo* o */cancelar* con el número de pedido");
   return lines.join("\n");
 }
 
@@ -257,4 +266,44 @@ ${readyLine}
 Total: *${formatCurrency(order.total)}*
 
 ¡Gracias por pedir en *${getRestaurantName()}*! 🐟`;
+}
+
+async function handleCancelOrder(
+  orderId?: string,
+): Promise<AdminCommandResult> {
+  if (!orderId) {
+    return { reply: "Indica el número: */cancelar 1001*" };
+  }
+
+  const existing = await getOrder(orderId);
+  if (!existing) {
+    return { reply: `❌ Pedido #${orderId} no encontrado.` };
+  }
+
+  if (existing.status === "cancelado") {
+    return { reply: `ℹ️ El pedido #${orderId} ya está *cancelado*.` };
+  }
+
+  if (existing.status !== "pendiente") {
+    return {
+      reply: `⚠️ Solo se pueden cancelar pedidos *pendientes*. El #${orderId} está en *${existing.status}*.`,
+    };
+  }
+
+  const order = await cancelOrder(orderId, "admin");
+  if (!order) {
+    return { reply: `❌ No se pudo cancelar el pedido #${orderId}.` };
+  }
+
+  return {
+    reply: `❌ Pedido #${orderId} *cancelado*. Cliente notificado.`,
+    customerNotification: {
+      chatId: order.chatId,
+      text: `❌ *Pedido #${order.id}* cancelado
+
+Tu pedido fue cancelado por el restaurante. Si tienes dudas, contáctanos directamente.
+
+Escribe *hola* para hacer un nuevo pedido.`,
+    },
+  };
 }

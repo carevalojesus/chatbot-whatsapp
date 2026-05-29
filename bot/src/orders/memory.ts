@@ -60,3 +60,18 @@ export async function getPendingOrders(): Promise<Order[]> {
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 15);
 }
+
+export async function cancelOrder(
+  orderId: string,
+  by: "cliente" | "admin",
+): Promise<Order | undefined> {
+  const order = ordersById.get(orderId);
+  if (!order || order.status !== "pendiente") {
+    return undefined;
+  }
+
+  order.status = "cancelado";
+  order.cancelledBy = by;
+  ordersById.set(orderId, order);
+  return order;
+}

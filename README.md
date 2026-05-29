@@ -10,7 +10,8 @@ Bot de pedidos para cevichería peruana conectado a WhatsApp vía [OpenWA](https
 - Guarda pedidos, carta y sesiones en Firestore
 - Notifica al admin por WhatsApp cuando llega un pedido
 - **Comandos admin** para gestionar pedidos desde WhatsApp
-- Consulta de estado de pedidos
+- Consulta de estado de pedidos y **cancelación** (cliente y admin)
+- **Perfil de cliente** con nombre y direcciones guardadas (Casa, Trabajo, etc.)
 
 ## Requisitos
 
@@ -136,11 +137,14 @@ npm run test:chatbot
 
 ```
 restaurants/
-  la-curva-del-paraiso/              # Perfil (nombre, admin, horario, domicilio)
-  la-curva-del-paraiso/menu/current  # Carta (41 platos, 8 categorías)
-  la-curva-del-paraiso/orders/{id}   # Pedidos (#1001, #1002, …)
-  la-curva-del-paraiso/sessions/{id} # Sesión del chat (carrito en curso)
-  la-curva-del-paraiso/meta/counters # Contador de pedidos
+  la-curva-del-paraiso/                    # Perfil (nombre, admin, horario, domicilio)
+  la-curva-del-paraiso/menu/current        # Carta (41 platos, 8 categorías)
+  la-curva-del-paraiso/orders/{id}         # Pedidos (#1001, #1002, …)
+  la-curva-del-paraiso/sessions/{id}       # Sesión del chat (carrito en curso)
+  la-curva-del-paraiso/customers/{id}      # Clientes (nombre, contador de pedidos)
+  la-curva-del-paraiso/customers/{id}/addresses/{id}  # Direcciones guardadas
+  la-curva-del-paraiso/customerChats/{id}  # Índice chatId → customerId
+  la-curva-del-paraiso/meta/counters       # Contador de pedidos
 ```
 
 ### Comandos admin (WhatsApp)
@@ -153,7 +157,17 @@ Desde el número admin (`933240664`) escribe al bot:
 | `/ver 1001` | Detalle de un pedido |
 | `/confirmar 1001` | En preparación + avisa al cliente |
 | `/listo 1001` | Entregado + avisa al cliente |
+| `/cancelar 1001` | Cancela pedido pendiente + avisa al cliente |
 | `/ayuda` | Lista de comandos |
+
+### Menú del cliente
+
+| Opción | Acción |
+|--------|--------|
+| **3 — Mis pedidos** | Ver pedidos recientes; cancelar si están *pendientes* |
+| **4 — Mi perfil** | Editar nombre, agregar/eliminar direcciones (máx. 5) |
+
+Al pedir domicilio, el bot ofrece direcciones guardadas o permite ingresar una nueva y guardarla con alias.
 
 ### Cambiar estado manualmente (Firebase Console)
 
@@ -164,6 +178,7 @@ En Firestore → `orders` → pedido → campo `status`:
 | `pendiente` | Recién llegado |
 | `confirmado` | En preparación |
 | `entregado` | Completado |
+| `cancelado` | Cancelado (cliente o admin) |
 
 El cliente consulta con la opción **3** del bot.
 
@@ -184,7 +199,8 @@ El cliente consulta con la opción **3** del bot.
 ```
 chatbot-whatsapp/
 ├── bot/src/
-│   ├── flows/          # Lógica del chatbot
+│   ├── flows/          # Lógica del chatbot (pedidos, perfil, admin)
+│   ├── customers/      # Clientes y direcciones guardadas
 │   ├── firebase/       # Admin SDK
 │   ├── menu/           # Carta + Firestore
 │   ├── orders/         # Pedidos (Firestore / memoria)
@@ -220,7 +236,9 @@ Si no hay `firebase-service-account.json`, el bot usa **memoria local** (pedidos
 
 ## Próximos pasos
 
-- [x] Comandos admin por WhatsApp (`/confirmar 1001`)
+- [x] Comandos admin por WhatsApp (`/confirmar`, `/listo`, `/cancelar`)
+- [x] Perfil de cliente y direcciones guardadas
+- [x] Cancelación de pedidos pendientes
 - [ ] Panel web para gestionar pedidos
 - [ ] IA para preguntas libres
 
