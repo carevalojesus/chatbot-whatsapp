@@ -9,6 +9,7 @@ Bot de pedidos para cevichería peruana conectado a WhatsApp vía [OpenWA](https
 - Domicilio o recoger en local
 - Guarda pedidos, carta y sesiones en Firestore
 - Notifica al admin por WhatsApp cuando llega un pedido
+- **Comandos admin** para gestionar pedidos desde WhatsApp
 - Consulta de estado de pedidos
 
 ## Requisitos
@@ -142,9 +143,21 @@ restaurants/
   la-curva-del-paraiso/meta/counters # Contador de pedidos
 ```
 
-### Cambiar estado de un pedido
+### Comandos admin (WhatsApp)
 
-En **Firebase Console** → Firestore → `orders` → pedido → campo `status`:
+Desde el número admin (`933240664`) escribe al bot:
+
+| Comando | Acción |
+|---------|--------|
+| `/pedidos` | Ver pedidos pendientes |
+| `/ver 1001` | Detalle de un pedido |
+| `/confirmar 1001` | En preparación + avisa al cliente |
+| `/listo 1001` | Entregado + avisa al cliente |
+| `/ayuda` | Lista de comandos |
+
+### Cambiar estado manualmente (Firebase Console)
+
+En Firestore → `orders` → pedido → campo `status`:
 
 | Valor | Significado |
 |-------|-------------|
@@ -207,7 +220,7 @@ Si no hay `firebase-service-account.json`, el bot usa **memoria local** (pedidos
 
 ## Próximos pasos
 
-- [ ] Comandos admin por WhatsApp (`/confirmar 1001`)
+- [x] Comandos admin por WhatsApp (`/confirmar 1001`)
 - [ ] Panel web para gestionar pedidos
 - [ ] IA para preguntas libres
 

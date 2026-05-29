@@ -76,3 +76,25 @@ export async function getOrdersForChat(chatId: string): Promise<Order[]> {
 
   return snap.docs.map((doc) => mapOrder(doc.id, doc.data()));
 }
+
+export async function updateOrderStatus(
+  orderId: string,
+  status: OrderStatus,
+): Promise<Order | undefined> {
+  const ref = ordersCollection(getDb()).doc(orderId);
+  const snap = await ref.get();
+  if (!snap.exists) return undefined;
+
+  await ref.update({ status, updatedAt: FieldValue.serverTimestamp() });
+  return mapOrder(snap.id, { ...snap.data()!, status });
+}
+
+export async function getPendingOrders(): Promise<Order[]> {
+  const snap = await ordersCollection(getDb())
+    .where("status", "==", "pendiente")
+    .orderBy("createdAt", "desc")
+    .limit(15)
+    .get();
+
+  return snap.docs.map((doc) => mapOrder(doc.id, doc.data()));
+}

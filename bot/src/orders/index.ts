@@ -1,7 +1,7 @@
 import { isFirebaseEnabled } from "../firebase/admin.js";
 import * as firestoreStore from "./firestore.js";
 import * as memoryStore from "./memory.js";
-import type { CreateOrderInput, Order } from "./types.js";
+import type { CreateOrderInput, Order, OrderStatus } from "./types.js";
 
 const store = isFirebaseEnabled() ? firestoreStore : memoryStore;
 
@@ -18,3 +18,11 @@ export const getLatestOrder = (chatId: string): Promise<Order | undefined> =>
 
 export const getOrdersForChat = (chatId: string): Promise<Order[]> =>
   store.getOrdersForChat(chatId);
+
+export const updateOrderStatus = (
+  orderId: string,
+  status: OrderStatus,
+): Promise<Order | undefined> => store.updateOrderStatus(orderId, status);
+
+export const getPendingOrders = (): Promise<Order[]> =>
+  store.getPendingOrders();

@@ -6,8 +6,10 @@ import {
   isDuplicateCrossChannel,
   isDuplicateEvent,
 } from "./dedupe.js";
+import { handleAdminCommand } from "../flows/adminFlow.js";
 import { handleIncomingMessage } from "../flows/orderFlow.js";
 import { sendTextMessage } from "../openwa/client.js";
+import { isAdminChatId } from "../restaurant/profile.js";
 import { verifyWebhookSignature } from "./verify.js";
 
 export interface MessageReceivedPayload {
@@ -90,6 +92,23 @@ export async function handleWebhook(
   console.log(`Mensaje de ${data.from}: "${text}"`);
 
   const customerName = data.contact?.pushName ?? data.contact?.name;
+
+  if (isAdminChatId(data.from)) {
+    const adminResult = await handleAdminCommand(text);
+    if (adminResult) {
+      await sendTextMessage(data.from, adminResult.reply);
+      console.log(`Comando admin procesado para ${data.from}`);
+
+      if (adminResult.customerNotification) {
+        const { chatId, text: customerText } = adminResult.customerNotification;
+        await sendTextMessage(chatId, customerText);
+        console.log(`Cliente notificado (${chatId})`);
+      }
+
+      return { status: 200, body: "OK" };
+    }
+  }
+
   const reply = await handleIncomingMessage(data.from, text, customerName);
 
   if (reply) {

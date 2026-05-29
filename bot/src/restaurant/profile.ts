@@ -47,6 +47,17 @@ export function getAdminWhatsAppId(): string {
   return profile.adminWhatsAppId;
 }
 
+export function isAdminChatId(chatId: string): boolean {
+  const { adminWhatsAppId, adminPhone } = getRestaurantProfile();
+
+  if (chatId === adminWhatsAppId) {
+    return true;
+  }
+
+  const chatPhone = chatId.split("@")[0]?.replace(/\D/g, "") ?? "";
+  return chatPhone.length > 0 && chatPhone === adminPhone;
+}
+
 export async function loadRestaurantProfile(): Promise<RestaurantProfile> {
   if (!isFirebaseEnabled()) {
     profile = buildDefaultProfile();
