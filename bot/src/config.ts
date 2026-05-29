@@ -74,6 +74,12 @@ export const config = {
     sessionId: process.env.OPENWA_SESSION_ID ?? "",
   },
   webhookSecret: process.env.WEBHOOK_SECRET ?? "cambia-este-secreto",
+  session: {
+    /** Minutos sin mensajes antes de cancelar un pedido en curso */
+    inactivityMinutes: Number(process.env.SESSION_INACTIVITY_MINUTES ?? 30),
+    /** Minutos sin mensajes para enviar aviso "¿seguimos?" */
+    warningMinutes: Number(process.env.SESSION_WARNING_MINUTES ?? 25),
+  },
 };
 
 function normalizeAdminPhone(phone: string): string {

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 *.log
+logs/
 .DS_Store
 openwa-gateway/
 qr-whatsapp.png

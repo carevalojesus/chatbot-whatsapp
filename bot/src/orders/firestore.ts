@@ -118,6 +118,26 @@ export async function getPendingOrders(): Promise<Order[]> {
   return snap.docs.map((doc) => mapOrder(doc.id, doc.data()));
 }
 
+export async function getActiveOrders(): Promise<Order[]> {
+  const snap = await ordersCollection(getDb())
+    .where("status", "in", ["pendiente", "confirmado"])
+    .orderBy("createdAt", "desc")
+    .limit(20)
+    .get();
+
+  return snap.docs.map((doc) => mapOrder(doc.id, doc.data()));
+}
+
+export async function getOrdersToDeliver(): Promise<Order[]> {
+  const snap = await ordersCollection(getDb())
+    .where("status", "==", "confirmado")
+    .orderBy("createdAt", "desc")
+    .limit(15)
+    .get();
+
+  return snap.docs.map((doc) => mapOrder(doc.id, doc.data()));
+}
+
 export async function cancelOrder(
   orderId: string,
   by: "cliente" | "admin",

@@ -101,21 +101,29 @@ curl http://127.0.0.1:3000/health
 
 ```
 Hola  → menú principal
-1     → carta completa
 2     → iniciar pedido
-1     → categoría Ceviches
-1     → ceviche de pescado
+1     → categoría (ej. Ceviches)
+1     → plato
 1     → cantidad
-listo → continuar
+2     → continuar con el pedido
 2     → recoger en local
+1     → Yape (u otro método de pago)
 si    → confirmar pedido
 ```
 
-**Prueba automática** (envía mensajes al admin en WhatsApp):
+**Atajos durante el pedido:** `9` ver carrito · `continuar` pasar al pago (si hay platos) · `0` volver · `cancelar` abortar.
+
+**Prueba automática** (simula el flujo completo con aserciones; no usa WhatsApp del cliente):
 
 ```bash
 cd bot
 npm run test:chatbot
+```
+
+Para enviar un resumen al admin por WhatsApp al terminar:
+
+```bash
+npm run test:chatbot:notify
 ```
 
 ---
@@ -128,9 +136,46 @@ npm run test:chatbot
 | `./scripts/register-webhook.sh` | Registra webhook (limpia duplicados) |
 | `./scripts/show-qr.sh` | QR para vincular WhatsApp |
 | `./scripts/stop-openwa.sh` | Detiene OpenWA |
-| `npm run dev` | Bot en desarrollo |
+| `./scripts/start-production.sh` | OpenWA + bot compilado con PM2 (24/7) |
+| `./scripts/stop-production.sh` | Detiene bot (PM2) y OpenWA |
+| `./scripts/status-production.sh` | Estado de OpenWA, bot y PM2 |
+| `npm run dev` | Bot en desarrollo (bot/) |
+| `npm run build && npm start` | Bot en producción sin PM2 |
 | `npm run seed:firebase` | Sincroniza carta y datos del restaurante |
-| `npm run test:chatbot` | Prueba end-to-end y envía al admin |
+| `npm run test:chatbot` | Prueba E2E del flujo de pedido |
+| `npm run test:chatbot:notify` | Igual + resumen al admin por WhatsApp |
+
+---
+
+## Producción 24/7 (PM2)
+
+Para que el bot se reinicie solo si falla (Mac mini, VPS o PC dedicada):
+
+```bash
+npm install -g pm2
+chmod +x scripts/*.sh
+./scripts/start-production.sh
+```
+
+Verifica:
+
+```bash
+./scripts/status-production.sh
+curl http://127.0.0.1:3000/health
+```
+
+| Comando | Acción |
+|---------|--------|
+| `pm2 logs chatbot-bot` | Ver logs del bot |
+| `pm2 restart chatbot-bot` | Reiniciar solo el bot |
+| `./scripts/stop-production.sh` | Detener todo |
+
+**Notas de producción:**
+
+- OpenWA y el bot deben correr en la **misma máquina** (webhook en `127.0.0.1`).
+- Si reinicias el servidor, puede hacer falta `./scripts/show-qr.sh` si WhatsApp desvinculó la sesión.
+- En un VPS remoto necesitas acceso gráfico o VNC para escanear el QR la primera vez.
+- Tras cambios de código: `cd bot && npm run build && pm2 restart chatbot-bot`.
 
 ---
 
@@ -154,7 +199,9 @@ Desde el número admin (`933240664`) escribe al bot:
 
 | Comando | Acción |
 |---------|--------|
-| `/pedidos` | Ver pedidos pendientes |
+| `/pedidos` | Pedidos nuevos (sin confirmar) |
+| `/activos` | Todos en curso (nuevos + por entregar) |
+| `/entregas` | Listos para entregar o recoger |
 | `/ver 1001` | Detalle de un pedido |
 | `/confirmar 1001` | En preparación + avisa al cliente |
 | `/listo 1001` | Entregado + avisa al cliente |
@@ -212,7 +259,8 @@ chatbot-whatsapp/
 │   ├── restaurant/     # Perfil del negocio
 │   ├── notifications/  # Aviso al admin
 │   └── webhook/        # Receptor + deduplicación
-├── scripts/            # OpenWA setup
+├── scripts/            # OpenWA setup + producción PM2
+├── ecosystem.config.cjs  # Config PM2 del bot
 ├── firebase.json       # Config Firebase CLI
 ├── firestore.rules     # Reglas de seguridad
 └── openwa-gateway/     # OpenWA local (gitignored)
@@ -231,7 +279,8 @@ Si no hay `firebase-service-account.json`, el bot usa **memoria local** (pedidos
 | Problema | Solución |
 |----------|----------|
 | No responde a `Hola` | Verifica que el bot corre (`npm run dev`) y OpenWA está `ready` |
-| Responde una vez y luego no | Reinicia el bot; no envíes el mismo mensaje en ráfaga |
+| Responde una vez y luego no | `./scripts/stop-production.sh && ./scripts/start-production.sh` |
+| Carrito vacío tras agregar plato | Escribe `hola` y vuelve a pedir; reinicia el bot si persiste |
 | Webhook no llega | Ejecuta `./scripts/register-webhook.sh` de nuevo |
 | `firebase: false` en `/health` | Revisa ruta del JSON y `FIREBASE_PROJECT_ID` en `.env` |
 | QR no conecta | `./scripts/show-qr.sh` y escanea de nuevo |
@@ -243,6 +292,8 @@ Si no hay `firebase-service-account.json`, el bot usa **memoria local** (pedidos
 - [x] Comandos admin por WhatsApp (`/confirmar`, `/listo`, `/cancelar`)
 - [x] Perfil de cliente y direcciones guardadas
 - [x] Comprobante PDF con QR y validación `/validar`
+- [x] Flujo de pedido refactorizado (carrito, navegación, expiración por inactividad)
+- [x] Scripts PM2 para producción 24/7
 - [ ] Panel web para gestionar pedidos
 - [ ] IA para preguntas libres
 

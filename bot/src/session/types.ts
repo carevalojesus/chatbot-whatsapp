@@ -7,6 +7,8 @@ export type BotState =
   | "browse_categories"
   | "browse_items"
   | "enter_quantity"
+  | "after_add_to_cart"
+  | "cart_menu"
   | "choose_delivery"
   | "choose_saved_address"
   | "enter_address"
@@ -51,6 +53,12 @@ export interface UserSession {
   pendingAddressLine?: string;
   whatsappName?: string;
   pendingAction?: "order";
+  /** Estado al que volver desde cart_menu */
+  cartReturnState?: BotState;
+  /** Último mensaje del cliente (ms) — para expiración por inactividad */
+  lastActivityAt?: number;
+  /** Esperando respuesta al aviso de inactividad (1/0) */
+  awaitingInactivityConfirm?: boolean;
 }
 
 export function createEmptySession(chatId: string): UserSession {
@@ -58,6 +66,7 @@ export function createEmptySession(chatId: string): UserSession {
     chatId,
     state: "main_menu",
     cart: [],
+    lastActivityAt: Date.now(),
   };
 }
 
@@ -78,6 +87,8 @@ export function clearSessionFields(session: UserSession): UserSession {
   session.pendingAddressLine = undefined;
   session.whatsappName = undefined;
   session.pendingAction = undefined;
+  session.cartReturnState = undefined;
+  session.awaitingInactivityConfirm = undefined;
   session.customerId = customerId;
   session.customerName = customerName;
   return session;
@@ -88,6 +99,8 @@ export function isOrderingState(state: BotState): boolean {
     "browse_categories",
     "browse_items",
     "enter_quantity",
+    "after_add_to_cart",
+    "cart_menu",
     "choose_delivery",
     "choose_saved_address",
     "enter_address",
@@ -110,4 +123,5 @@ export function clearOrderingFields(session: UserSession): void {
   session.changeDue = undefined;
   session.pendingAddressAlias = undefined;
   session.pendingAddressLine = undefined;
+  session.cartReturnState = undefined;
 }

@@ -27,6 +27,11 @@ export const updateOrderStatus = (
 export const getPendingOrders = (): Promise<Order[]> =>
   store.getPendingOrders();
 
+export const getActiveOrders = (): Promise<Order[]> => store.getActiveOrders();
+
+export const getOrdersToDeliver = (): Promise<Order[]> =>
+  store.getOrdersToDeliver();
+
 export const cancelOrder = (
   orderId: string,
   by: "cliente" | "admin",

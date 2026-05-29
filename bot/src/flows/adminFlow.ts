@@ -1,13 +1,19 @@
 import {
   cancelOrder,
+  getActiveOrders,
   getOrder,
   getOrderByValidationToken,
+  getOrdersToDeliver,
   getPendingOrders,
   updateOrderStatus,
   validateOrder,
   type Order,
 } from "../orders/index.js";
 import { formatPaymentDetail } from "../orders/payment.js";
+import {
+  formatAdminOrderList,
+  formatGroupedActiveOrders,
+} from "./adminFormat.js";
 import { getRestaurantName } from "../restaurant/profile.js";
 import { formatCurrency } from "../utils/format.js";
 import { normalizeText } from "../utils/format.js";
@@ -23,7 +29,9 @@ export interface AdminCommandResult {
 function helpText(): string {
   return `🔐 *Comandos admin — ${getRestaurantName()}*
 
-/pedidos — Ver pedidos pendientes
+/pedidos — Pedidos nuevos (pendientes de confirmar)
+/activos — Todos los pedidos en curso (nuevos + por entregar)
+/entregas — Pedidos listos para entregar o recoger
 /confirmar [número] — Marcar en preparación y avisar al cliente
 /listo [número] — Marcar entregado y avisar al cliente
 /cancelar [número] — Cancelar pedido pendiente y avisar al cliente
@@ -32,7 +40,9 @@ function helpText(): string {
 /ayuda — Mostrar esta ayuda
 
 Ejemplos:
+  /activos
   /pedidos
+  /entregas
   /confirmar 1001
   /listo 1001
   /cancelar 1001
@@ -56,7 +66,7 @@ export function isExplicitAdminCommand(text: string): boolean {
     return parseAdminCommand(text) !== null;
   }
 
-  if (["ayuda", "help", "admin", "pedidos"].includes(normalized)) {
+  if (["ayuda", "help", "admin", "pedidos", "activos", "entregas"].includes(normalized)) {
     return true;
   }
 
@@ -76,7 +86,11 @@ export async function handleAdminCommand(
     case "ayuda":
       return { reply: helpText() };
     case "pedidos":
-      return { reply: await formatPendingOrders() };
+      return { reply: await formatNewOrders() };
+    case "activos":
+      return { reply: await formatActiveOrders() };
+    case "entregas":
+      return { reply: await formatDeliveryOrders() };
     case "ver":
       return handleViewOrder(parsed.orderId);
     case "confirmar":
@@ -98,6 +112,8 @@ export async function handleAdminCommand(
 
 type AdminCommand =
   | "pedidos"
+  | "activos"
+  | "entregas"
   | "confirmar"
   | "listo"
   | "cancelar"
@@ -122,7 +138,7 @@ function parseAdminCommand(text: string): {
   }
 
   const withSlash = trimmed.match(
-    /^\/(pedidos|confirmar|listo|entregado|cancelar|validar|ver|ayuda)(?:\s+(.+))?$/i,
+    /^\/(pedidos|activos|entregas|confirmar|listo|entregado|cancelar|validar|ver|ayuda)(?:\s+(.+))?$/i,
   );
   if (withSlash) {
     const cmd = withSlash[1].toLowerCase();
@@ -135,6 +151,14 @@ function parseAdminCommand(text: string): {
 
   if (normalized === "pedidos") {
     return { command: "pedidos" };
+  }
+
+  if (normalized === "activos") {
+    return { command: "activos" };
+  }
+
+  if (normalized === "entregas") {
+    return { command: "entregas" };
   }
 
   const withOrderId = normalized.match(
@@ -188,6 +212,14 @@ function mapCommand(
     return { command: "pedidos" };
   }
 
+  if (cmd === "activos") {
+    return { command: "activos" };
+  }
+
+  if (cmd === "entregas") {
+    return { command: "entregas" };
+  }
+
   if (cmd === "ayuda") {
     return { command: "ayuda" };
   }
@@ -219,28 +251,29 @@ function mapCommand(
   return null;
 }
 
-async function formatPendingOrders(): Promise<string> {
+async function formatNewOrders(): Promise<string> {
   const orders = await getPendingOrders();
-
-  if (!orders.length) {
-    return "✅ No hay pedidos pendientes.";
-  }
-
-  const lines = [`📋 *Pedidos pendientes (${orders.length})*\n`];
-
-  orders.forEach((order) => {
-    lines.push(formatOrderLine(order));
-  });
-
-  lines.push("\nUsa */confirmar*, */listo* o */cancelar* con el número de pedido");
-  return lines.join("\n");
+  return formatAdminOrderList(
+    "⏳ *Pedidos nuevos*",
+    orders,
+    "Usa */confirmar [número]* para aceptar o */activos* para ver todo en curso.",
+    "✅ No hay pedidos nuevos.\n\nUsa */activos* para ver pedidos en preparación.",
+  );
 }
 
-function formatOrderLine(order: Order): string {
-  const customer = order.customerName ? ` — ${order.customerName}` : "";
-  const mode =
-    order.deliveryType === "domicilio" ? "🛵 domicilio" : "🏪 recoger";
-  return `#${order.id}${customer} — ${formatCurrency(order.total)} — ${mode}`;
+async function formatActiveOrders(): Promise<string> {
+  const orders = await getActiveOrders();
+  return formatGroupedActiveOrders(orders);
+}
+
+async function formatDeliveryOrders(): Promise<string> {
+  const orders = await getOrdersToDeliver();
+  return formatAdminOrderList(
+    "👨‍🍳 *Por entregar*",
+    orders,
+    "Usa */listo [número]* o */validar [número]* al entregar/recoger.",
+    "✅ No hay pedidos listos para entregar.\n\nUsa */activos* para ver todos los pedidos en curso.",
+  );
 }
 
 async function handleViewOrder(

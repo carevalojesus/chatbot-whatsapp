@@ -1,14 +1,63 @@
+/**
+ * Prueba end-to-end del flujo de pedido (sin WhatsApp real).
+ *
+ * Uso:
+ *   npm run test:chatbot              → solo consola + aserciones
+ *   npm run test:chatbot:notify      → además envía resumen al admin por WhatsApp
+ *
+ * Variables:
+ *   TEST_CHAT_ID     chatId simulado (default: 51999000001@c.us)
+ *   NOTIFY_WHATSAPP=1  envía resumen al admin al finalizar
+ */
 import { handleIncomingMessage } from "../flows/orderFlow.js";
 import { initFirebase, isFirebaseEnabled } from "../firebase/admin.js";
 import { loadMenu, getMenu } from "../menu/data.js";
 import { sendTextMessage } from "../openwa/client.js";
-import { loadRestaurantProfile, getRestaurantProfile } from "../restaurant/profile.js";
+import {
+  loadRestaurantProfile,
+  getRestaurantProfile,
+} from "../restaurant/profile.js";
+import { config } from "../config.js";
 
-const TEST_CHAT = "51933240664@c.us"; // Admin — recibe la prueba en su WhatsApp
+const TEST_CHAT =
+  process.env.TEST_CHAT_ID?.trim() || "51999000001@c.us";
+const NOTIFY = process.env.NOTIFY_WHATSAPP === "1";
+const TEST_NAME = "Prueba Automática";
+
+interface Step {
+  label: string;
+  text: string;
+  expect: (reply: string) => void;
+}
+
+function assertIncludes(reply: string, fragment: string, step: string): void {
+  if (!reply.toLowerCase().includes(fragment.toLowerCase())) {
+    throw new Error(
+      `[${step}] Se esperaba "${fragment}" en la respuesta:\n${reply.slice(0, 600)}`,
+    );
+  }
+}
+
+async function send(text: string): Promise<string> {
+  return handleIncomingMessage(TEST_CHAT, text, TEST_NAME);
+}
+
+async function runStep(
+  step: Step,
+  log: string[],
+): Promise<void> {
+  const reply = await send(step.text);
+  step.expect(reply);
+  const preview =
+    reply.length > 280 ? `${reply.slice(0, 280)}…` : reply;
+  console.log(`✓ ${step.label}`);
+  console.log(`  → ${preview.replace(/\n/g, " ")}\n`);
+  log.push(`✓ ${step.label}`);
+}
 
 async function run(): Promise<void> {
   if (!isFirebaseEnabled()) {
-    console.error("Firebase no está activo");
+    console.error("Firebase no está activo — configura firebase-service-account.json");
     process.exit(1);
   }
 
@@ -24,33 +73,109 @@ async function run(): Promise<void> {
   );
 
   console.log(`Restaurante: ${profile.name}`);
-  console.log(`Carta Firebase: ${menu.categories.length} categorías, ${totalItems} platos\n`);
+  console.log(`Carta: ${menu.categories.length} categorías, ${totalItems} platos`);
+  console.log(`Chat de prueba: ${TEST_CHAT}\n`);
 
-  const steps: Array<{ label: string; text: string }> = [
-    { label: "Hola → menú principal", text: "Hola" },
-    { label: "1 → carta completa", text: "1" },
-    { label: "2 → iniciar pedido", text: "2" },
-    { label: "1 → categoría Ceviches", text: "1" },
-  ];
+  const log: string[] = [];
+  let passed = 0;
 
-  for (const step of steps) {
-    const reply = await handleIncomingMessage(TEST_CHAT, step.text, "Prueba Bot");
-    console.log(`--- ${step.label} ---`);
-    console.log(reply.slice(0, 500) + (reply.length > 500 ? "...\n" : "\n"));
+  const holaReply = await send("Hola");
+  if (holaReply.includes("registrarte")) {
+    console.log("✓ Hola → aviso de registro");
+    console.log(`  → ${holaReply.slice(0, 120).replace(/\n/g, " ")}\n`);
+    log.push("✓ Hola → aviso de registro");
+    passed += 1;
 
-    await sendTextMessage(TEST_CHAT, `[PRUEBA] ${step.label}\n\n${reply}`);
-    console.log(`✓ Enviado a WhatsApp ${TEST_CHAT}\n`);
-    await sleep(1500);
+    await runStep(
+      {
+        label: "2 → omitir registro",
+        text: "2",
+        expect: (r) => assertIncludes(r, "Bienvenido", "menú principal"),
+      },
+      log,
+    );
+    passed += 1;
+  } else {
+    assertIncludes(holaReply, "Bienvenido", "menú principal");
+    console.log("✓ Hola → menú principal (cliente ya conocido)");
+    console.log(`  → ${holaReply.slice(0, 120).replace(/\n/g, " ")}\n`);
+    log.push("✓ Hola → menú principal");
+    passed += 1;
   }
 
-  console.log("Prueba completa. Revisa WhatsApp del admin (933240664).");
-}
+  const orderSteps: Step[] = [
+    {
+      label: "2 → iniciar pedido",
+      text: "2",
+      expect: (r) => assertIncludes(r, "categoría", "iniciar pedido"),
+    },
+    {
+      label: "1 → primera categoría",
+      text: "1",
+      expect: (r) => assertIncludes(r, "S/", "lista de platos"),
+    },
+    {
+      label: "1 → primer plato",
+      text: "1",
+      expect: (r) => assertIncludes(r, "Cuántos", "cantidad"),
+    },
+    {
+      label: "1 → cantidad",
+      text: "1",
+      expect: (r) => assertIncludes(r, "Agregado", "post-agregar"),
+    },
+    {
+      label: "2 → continuar con pedido",
+      text: "2",
+      expect: (r) => assertIncludes(r, "recibes", "entrega"),
+    },
+    {
+      label: "2 → recoger en local",
+      text: "2",
+      expect: (r) => assertIncludes(r, "pagar", "pago"),
+    },
+    {
+      label: "1 → Yape",
+      text: "1",
+      expect: (r) => assertIncludes(r, "Confirma", "confirmación"),
+    },
+    {
+      label: "si → confirmar pedido",
+      text: "si",
+      expect: (r) => assertIncludes(r, "registrado", "pedido confirmado"),
+    },
+  ];
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  for (const step of orderSteps) {
+    await runStep(step, log);
+    passed += 1;
+  }
+
+  console.log(`\n${passed} pasos OK — flujo completo verificado.`);
+
+  if (NOTIFY) {
+    const adminChat = config.restaurant.adminWhatsAppId;
+    const summary = [
+      "🧪 *Prueba automática del bot*",
+      "",
+      `Restaurante: ${profile.name}`,
+      `Pasos: ${passed} OK`,
+      "",
+      ...log,
+      "",
+      "_Pedido de prueba creado desde chat simulado._",
+    ].join("\n");
+
+    await sendTextMessage(adminChat, summary);
+    console.log(`Resumen enviado a WhatsApp ${adminChat}`);
+  } else {
+    console.log(
+      "Tip: npm run test:chatbot:notify — envía resumen al admin.",
+    );
+  }
 }
 
 run().catch((error) => {
-  console.error("Error en prueba:", error);
+  console.error("\n❌ Prueba fallida:", error instanceof Error ? error.message : error);
   process.exit(1);
 });

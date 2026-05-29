@@ -4,6 +4,7 @@ import { initFirebase, isFirebaseEnabled } from "./firebase/admin.js";
 import { loadMenu } from "./menu/data.js";
 import { loadRestaurantProfile } from "./restaurant/profile.js";
 import { handleWebhook, logWebhookReady } from "./webhook/handler.js";
+import { startIdleSessionWatcher } from "./session/idleWatcher.js";
 
 const app = express();
 
@@ -64,6 +65,7 @@ async function bootstrap(): Promise<void> {
 
   app.listen(config.port, () => {
     logWebhookReady();
+    startIdleSessionWatcher();
     console.log(`API Key configurada: ${config.openwa.apiKey ? "sí" : "no"}`);
   });
 }

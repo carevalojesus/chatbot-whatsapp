@@ -67,6 +67,20 @@ export async function getPendingOrders(): Promise<Order[]> {
     .slice(0, 15);
 }
 
+export async function getActiveOrders(): Promise<Order[]> {
+  return [...ordersById.values()]
+    .filter((order) => order.status === "pendiente" || order.status === "confirmado")
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 20);
+}
+
+export async function getOrdersToDeliver(): Promise<Order[]> {
+  return [...ordersById.values()]
+    .filter((order) => order.status === "confirmado")
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 15);
+}
+
 export async function cancelOrder(
   orderId: string,
   by: "cliente" | "admin",

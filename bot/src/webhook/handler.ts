@@ -129,8 +129,13 @@ export async function handleWebhook(
   const reply = await handleIncomingMessage(data.from, text, customerName);
 
   if (reply) {
-    await sendTextMessage(data.from, reply);
-    console.log(`Respuesta enviada a ${data.from}`);
+    try {
+      await sendTextMessage(data.from, reply);
+      console.log(`Respuesta enviada a ${data.from}`);
+    } catch (error) {
+      console.error(`No se pudo enviar respuesta a ${data.from}:`, error);
+      return { status: 200, body: "OK" };
+    }
   }
 
   return { status: 200, body: "OK" };

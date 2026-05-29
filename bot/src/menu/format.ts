@@ -79,7 +79,7 @@ export function formatMenuOverview(
 
 export function formatCategoryMenu(
   category: MenuCategory,
-  options?: { mode?: "order" | "view" },
+  options?: { mode?: "order" | "view"; footer?: string | false },
 ): string {
   const mode = options?.mode ?? "order";
   const emoji = categoryEmoji(category);
@@ -92,12 +92,19 @@ export function formatCategoryMenu(
 
   lines.push(DIVIDER);
 
-  if (mode === "view") {
+  if (options?.footer === false) {
+    return lines.join("\n");
+  }
+
+  const customFooter = options?.footer;
+  if (typeof customFooter === "string") {
+    lines.push(customFooter);
+  } else if (mode === "view") {
     lines.push("_Explora los platos de esta categoría._");
     lines.push("*0* ← Categorías · *2* Hacer pedido");
   } else {
     lines.push("_Escribe el *número* del plato que deseas._");
-    lines.push("*0* ← Categorías · *listo* cuando termines");
+    lines.push("*9* carrito · *ok* continuar · *0* categorías");
   }
 
   return lines.join("\n");
@@ -111,10 +118,11 @@ export function formatFullMenu(categories: MenuCategory[]): string {
   });
 }
 
+/** @deprecated Usar formatBrowseCategoriesPrompt de orderPrompts */
 export function formatOrderCategoriesPrompt(categories: MenuCategory[]): string {
   return formatMenuOverview(categories, {
     title: "🛒 *Nuevo pedido*\n\nElige una categoría:",
     footer:
-      "_Escribe el número de la categoría._\n*carrito* ver pedido · *0* Menú principal",
+      "_Escribe el número de la categoría._\n*9* carrito · *ok* continuar · *0* menú",
   });
 }
