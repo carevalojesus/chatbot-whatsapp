@@ -6,7 +6,7 @@ import {
   isDuplicateCrossChannel,
   isDuplicateEvent,
 } from "./dedupe.js";
-import { handleAdminCommand, getAdminHelpText, isAdminCommandText } from "../flows/adminFlow.js";
+import { handleAdminCommand, getAdminHelpText, isExplicitAdminCommand } from "../flows/adminFlow.js";
 import { handleIncomingMessage } from "../flows/orderFlow.js";
 import { sendTextMessage } from "../openwa/client.js";
 import { isAdminChatId, rememberAdminChatId } from "../restaurant/profile.js";
@@ -96,28 +96,28 @@ export async function handleWebhook(
   if (isAdminChatId(data.from)) {
     rememberAdminChatId(data.from);
 
-    const adminResult = await handleAdminCommand(text);
-    if (adminResult) {
-      await sendTextMessage(data.from, adminResult.reply);
-      console.log(`Comando admin procesado para ${data.from}`);
+    if (isExplicitAdminCommand(text)) {
+      const adminResult = await handleAdminCommand(text, data.from);
+      if (adminResult) {
+        await sendTextMessage(data.from, adminResult.reply);
+        console.log(`Comando admin procesado para ${data.from}`);
 
-      if (adminResult.customerNotification) {
-        const { chatId, text: customerText } = adminResult.customerNotification;
-        await sendTextMessage(chatId, customerText);
-        console.log(`Cliente notificado (${chatId})`);
+        if (adminResult.customerNotification) {
+          const { chatId, text: customerText } = adminResult.customerNotification;
+          await sendTextMessage(chatId, customerText);
+          console.log(`Cliente notificado (${chatId})`);
+        }
+
+        return { status: 200, body: "OK" };
       }
 
-      return { status: 200, body: "OK" };
+      if (text.trim().startsWith("/")) {
+        await sendTextMessage(data.from, getAdminHelpText());
+        console.log(`Ayuda admin enviada a ${data.from}`);
+        return { status: 200, body: "OK" };
+      }
     }
-
-    if (isAdminCommandText(text) || text.startsWith("/")) {
-      await sendTextMessage(data.from, getAdminHelpText());
-      console.log(`Ayuda admin enviada a ${data.from}`);
-      return { status: 200, body: "OK" };
-    }
-  }
-
-  if (isAdminCommandText(text)) {
+  } else if (isExplicitAdminCommand(text)) {
     console.warn(`Comando admin no autorizado desde ${data.from}`);
     await sendTextMessage(
       data.from,

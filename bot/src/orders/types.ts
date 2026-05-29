@@ -4,6 +4,8 @@ export type OrderStatus =
   | "entregado"
   | "cancelado";
 
+export type PaymentMethod = "yape" | "plin" | "transferencia" | "efectivo";
+
 export interface Order {
   id: string;
   chatId: string;
@@ -18,11 +20,17 @@ export interface Order {
   deliveryType: "domicilio" | "recoger";
   address?: string;
   addressAlias?: string;
+  paymentMethod?: PaymentMethod;
+  cashPaid?: number;
+  changeDue?: number;
   subtotal: number;
   deliveryFee: number;
   total: number;
   status: OrderStatus;
   cancelledBy?: "cliente" | "admin";
+  validationToken?: string;
+  validatedAt?: Date;
+  validatedBy?: string;
   createdAt: Date;
 }
 

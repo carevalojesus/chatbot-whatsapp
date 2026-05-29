@@ -35,6 +35,7 @@ function mapCustomer(id: string, data: DocumentData): Customer {
     phone: data.phone,
     name: data.name ?? "",
     orderCount: data.orderCount ?? 0,
+    registrationSkipped: data.registrationSkipped ?? false,
     registeredAt:
       registeredAt instanceof Timestamp
         ? registeredAt.toDate()
@@ -100,15 +101,10 @@ async function linkChatToCustomer(
 
 export async function getOrCreateCustomer(
   chatId: string,
-  name?: string,
 ): Promise<Customer> {
   const existing = await getCustomerByChatId(chatId);
   if (existing) {
     await linkChatToCustomer(existing.id, chatId);
-    if (name && !existing.name) {
-      await updateCustomerName(existing.id, name);
-      existing.name = name;
-    }
     return existing;
   }
 
@@ -120,8 +116,9 @@ export async function getOrCreateCustomer(
     id: customerId,
     chatIds: [chatId],
     phone,
-    name: name?.trim() ?? "",
+    name: "",
     orderCount: 0,
+    registrationSkipped: false,
     registeredAt: new Date(),
   };
 
@@ -134,6 +131,18 @@ export async function getOrCreateCustomer(
     .set({ customerId, updatedAt: FieldValue.serverTimestamp() });
 
   return customer;
+}
+
+export async function setRegistrationSkipped(
+  customerId: string,
+): Promise<void> {
+  await customersCollection(getDb()).doc(customerId).set(
+    {
+      registrationSkipped: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 }
 
 export async function updateCustomerName(

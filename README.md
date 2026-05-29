@@ -11,6 +11,7 @@ Bot de pedidos para cevichería peruana conectado a WhatsApp vía [OpenWA](https
 - Notifica al admin por WhatsApp cuando llega un pedido
 - **Comandos admin** para gestionar pedidos desde WhatsApp
 - Consulta de estado de pedidos y **cancelación** (cliente y admin)
+- **Comprobante PDF con QR** al confirmar pedido (validación de entrega)
 - **Perfil de cliente** con nombre y direcciones guardadas (Casa, Trabajo, etc.)
 
 ## Requisitos
@@ -158,7 +159,10 @@ Desde el número admin (`933240664`) escribe al bot:
 | `/confirmar 1001` | En preparación + avisa al cliente |
 | `/listo 1001` | Entregado + avisa al cliente |
 | `/cancelar 1001` | Cancela pedido pendiente + avisa al cliente |
+| `/validar 1001` | Valida entrega (QR) + marca entregado + avisa al cliente |
 | `/ayuda` | Lista de comandos |
+
+Al confirmar un pedido, el cliente y el admin reciben un **PDF** con detalle del pedido y un **código QR**. El admin valida escaneando el QR o con `/validar 1001` (también acepta pegar el código `LCP:1001:...` del QR).
 
 ### Menú del cliente
 
@@ -238,7 +242,7 @@ Si no hay `firebase-service-account.json`, el bot usa **memoria local** (pedidos
 
 - [x] Comandos admin por WhatsApp (`/confirmar`, `/listo`, `/cancelar`)
 - [x] Perfil de cliente y direcciones guardadas
-- [x] Cancelación de pedidos pendientes
+- [x] Comprobante PDF con QR y validación `/validar`
 - [ ] Panel web para gestionar pedidos
 - [ ] IA para preguntas libres
 

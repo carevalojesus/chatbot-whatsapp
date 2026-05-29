@@ -27,15 +27,11 @@ export async function getCustomerByChatId(
 
 export async function getOrCreateCustomer(
   chatId: string,
-  name?: string,
 ): Promise<Customer> {
   const existing = await getCustomerByChatId(chatId);
   if (existing) {
     if (!existing.chatIds.includes(chatId)) {
       existing.chatIds.push(chatId);
-    }
-    if (name && !existing.name) {
-      existing.name = name;
     }
     return existing;
   }
@@ -45,14 +41,24 @@ export async function getOrCreateCustomer(
     id: customerId,
     chatIds: [chatId],
     phone: chatId.endsWith("@c.us") ? customerId : undefined,
-    name: name?.trim() ?? "",
+    name: "",
     orderCount: 0,
+    registrationSkipped: false,
     registeredAt: new Date(),
   };
 
   customersById.set(customerId, customer);
   chatToCustomer.set(chatId, customerId);
   return customer;
+}
+
+export async function setRegistrationSkipped(
+  customerId: string,
+): Promise<void> {
+  const customer = customersById.get(customerId);
+  if (customer) {
+    customer.registrationSkipped = true;
+  }
 }
 
 export async function updateCustomerName(

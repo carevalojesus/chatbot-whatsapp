@@ -6,6 +6,8 @@ import {
 import { getDb } from "../firebase/admin.js";
 import { countersDoc, ordersCollection } from "../firebase/paths.js";
 import type { CreateOrderInput, Order, OrderStatus } from "./types.js";
+import { generateValidationToken } from "./validation.js";
+import { isValidatableStatus, type ValidateOrderResult } from "./validate.js";
 
 function mapOrder(id: string, data: DocumentData): Order {
   const createdAt = data.createdAt;
@@ -18,11 +20,22 @@ function mapOrder(id: string, data: DocumentData): Order {
     deliveryType: data.deliveryType,
     address: data.address,
     addressAlias: data.addressAlias,
+    paymentMethod: data.paymentMethod,
+    cashPaid: data.cashPaid,
+    changeDue: data.changeDue,
     subtotal: data.subtotal,
     deliveryFee: data.deliveryFee,
     total: data.total,
     status: data.status as OrderStatus,
     cancelledBy: data.cancelledBy,
+    validationToken: data.validationToken,
+    validatedAt:
+      data.validatedAt instanceof Timestamp
+        ? data.validatedAt.toDate()
+        : data.validatedAt
+          ? new Date(data.validatedAt)
+          : undefined,
+    validatedBy: data.validatedBy,
     createdAt:
       createdAt instanceof Timestamp
         ? createdAt.toDate()
@@ -41,10 +54,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       : 1000;
     const next = current + 1;
     const orderId = String(next);
+    const validationToken = generateValidationToken();
 
     tx.set(counterRef, { orderCounter: next }, { merge: true });
     tx.set(ordersCollection(db).doc(orderId), {
       ...input,
+      validationToken,
       orderNumber: next,
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -52,6 +67,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     return {
       ...input,
       id: orderId,
+      validationToken,
       createdAt: new Date(),
     };
   });
@@ -129,4 +145,64 @@ export async function cancelOrder(
     status: "cancelado",
     cancelledBy: by,
   });
+}
+
+export async function getOrderByValidationToken(
+  token: string,
+): Promise<Order | undefined> {
+  const snap = await ordersCollection(getDb())
+    .where("validationToken", "==", token)
+    .limit(1)
+    .get();
+
+  if (snap.empty) return undefined;
+  const doc = snap.docs[0];
+  return mapOrder(doc.id, doc.data());
+}
+
+export async function validateOrder(
+  orderId: string,
+  validatedBy: string,
+  token?: string,
+): Promise<ValidateOrderResult> {
+  const ref = ordersCollection(getDb()).doc(orderId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    return { ok: false, error: "not_found" };
+  }
+
+  const order = mapOrder(snap.id, snap.data()!);
+
+  if (token && order.validationToken !== token) {
+    return { ok: false, error: "invalid_token" };
+  }
+
+  if (order.status === "cancelado") {
+    return { ok: false, error: "cancelado", order };
+  }
+
+  if (order.validatedAt || order.status === "entregado") {
+    return { ok: false, error: "already_validated", order };
+  }
+
+  if (!isValidatableStatus(order.status)) {
+    return { ok: false, error: "already_validated", order };
+  }
+
+  await ref.update({
+    status: "entregado",
+    validatedAt: FieldValue.serverTimestamp(),
+    validatedBy,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return {
+    ok: true,
+    order: mapOrder(snap.id, {
+      ...snap.data()!,
+      status: "entregado",
+      validatedAt: new Date(),
+      validatedBy,
+    }),
+  };
 }

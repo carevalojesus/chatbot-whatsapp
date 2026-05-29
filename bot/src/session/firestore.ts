@@ -20,9 +20,14 @@ function mapSession(data: DocumentData): UserSession {
     deliveryType: data.deliveryType,
     address: data.address,
     addressAlias: data.addressAlias,
+    paymentMethod: data.paymentMethod,
+    cashPaid: data.cashPaid,
+    changeDue: data.changeDue,
     selectedOrderId: data.selectedOrderId,
     pendingAddressAlias: data.pendingAddressAlias,
     pendingAddressLine: data.pendingAddressLine,
+    whatsappName: data.whatsappName,
+    pendingAction: data.pendingAction,
   };
 }
 

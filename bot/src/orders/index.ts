@@ -5,7 +5,7 @@ import type { CreateOrderInput, Order, OrderStatus } from "./types.js";
 
 const store = isFirebaseEnabled() ? firestoreStore : memoryStore;
 
-export type { CreateOrderInput, Order, OrderStatus } from "./types.js";
+export type { CreateOrderInput, Order, OrderStatus, PaymentMethod } from "./types.js";
 
 export const createOrder = (input: CreateOrderInput): Promise<Order> =>
   store.createOrder(input);
@@ -31,3 +31,15 @@ export const cancelOrder = (
   orderId: string,
   by: "cliente" | "admin",
 ): Promise<Order | undefined> => store.cancelOrder(orderId, by);
+
+export const getOrderByValidationToken = (token: string) =>
+  store.getOrderByValidationToken(token);
+
+export const validateOrder = (
+  orderId: string,
+  validatedBy: string,
+  token?: string,
+) => store.validateOrder(orderId, validatedBy, token);
+
+export { buildQrPayload, parseQrPayload } from "./validation.js";
+export { generateOrderPdf } from "./pdf.js";

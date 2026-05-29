@@ -2,31 +2,161 @@ import {
   addAddress,
   deleteAddress,
   getCustomer,
+  getCustomerByChatId,
   getOrCreateCustomer,
   listAddresses,
   MAX_ADDRESSES,
+  setRegistrationSkipped,
   updateCustomerName,
 } from "../customers/index.js";
 import type { UserSession } from "../session/types.js";
 import { normalizeText, parseChoice } from "../utils/format.js";
 
+export function buildRegistrationPrompt(whatsappName?: string): string {
+  const nameHint = whatsappName
+    ? `\n\n_Tu nombre en WhatsApp es *${whatsappName}* — puedes usarlo al registrarte._`
+    : "";
+
+  return `👋 *¿Quieres registrarte como cliente?*
+
+Guardamos tu nombre y direcciones para pedir más rápido la próxima vez.${nameHint}
+
+1️⃣ Sí, registrarme
+2️⃣ No, continuar sin registro
+
+Puedes registrarte después en *Mi perfil* (opción 4).`;
+}
+
+export async function shouldPromptRegistration(
+  chatId: string,
+): Promise<boolean> {
+  const customer = await getCustomerByChatId(chatId);
+  if (!customer) return true;
+  if (customer.registrationSkipped) return false;
+  if (customer.name.trim()) return false;
+  return true;
+}
+
 export async function ensureSessionCustomer(
   session: UserSession,
-  name?: string,
 ): Promise<string> {
   if (session.customerId) {
     return session.customerId;
   }
 
-  const customer = await getOrCreateCustomer(
-    session.chatId,
-    name ?? session.customerName,
-  );
+  const customer = await getOrCreateCustomer(session.chatId);
   session.customerId = customer.id;
   if (customer.name) {
     session.customerName = customer.name;
   }
   return customer.id;
+}
+
+export async function handleRegistrationFlow(
+  session: UserSession,
+  text: string,
+): Promise<{ reply: string; done: boolean; continueOrder?: boolean }> {
+  const normalized = normalizeText(text);
+
+  switch (session.state) {
+    case "register_prompt":
+      return handleRegisterPrompt(session, text, normalized);
+    case "register_name":
+      return handleRegisterName(session, text, normalized);
+    default:
+      session.state = "register_prompt";
+      return {
+        reply: buildRegistrationPrompt(session.whatsappName),
+        done: false,
+      };
+  }
+}
+
+async function handleRegisterPrompt(
+  session: UserSession,
+  text: string,
+  normalized: string,
+): Promise<{ reply: string; done: boolean; continueOrder?: boolean }> {
+  if (normalized === "0") {
+    session.state = "main_menu";
+    session.pendingAction = undefined;
+    return { reply: "", done: true };
+  }
+
+  const choice = parseChoice(text, 2);
+  if (!choice) {
+    return {
+      reply: `Opción inválida.\n\n${buildRegistrationPrompt(session.whatsappName)}`,
+      done: false,
+    };
+  }
+
+  if (choice === 1) {
+    session.state = "register_name";
+    const whatsappHint = session.whatsappName
+      ? `\n\nO escribe *1* para usar *${session.whatsappName}* (nombre de WhatsApp).`
+      : "";
+    return {
+      reply: `✏️ Escribe tu *nombre* para registrarte:${whatsappHint}`,
+      done: false,
+    };
+  }
+
+  const customer = await getOrCreateCustomer(session.chatId);
+  await setRegistrationSkipped(customer.id);
+  session.customerId = customer.id;
+
+  const continueOrder = session.pendingAction === "order";
+  session.pendingAction = undefined;
+  session.state = "main_menu";
+
+  return {
+    reply: continueOrder
+      ? ""
+      : "Entendido. Puedes pedir sin registro o registrarte en *Mi perfil* (opción 4).",
+    done: !continueOrder,
+    continueOrder,
+  };
+}
+
+async function handleRegisterName(
+  session: UserSession,
+  text: string,
+  normalized: string,
+): Promise<{ reply: string; done: boolean; continueOrder?: boolean }> {
+  if (normalized === "0") {
+    session.state = "register_prompt";
+    return {
+      reply: buildRegistrationPrompt(session.whatsappName),
+      done: false,
+    };
+  }
+
+  let name = text.trim();
+  if (normalized === "1" && session.whatsappName) {
+    name = session.whatsappName;
+  }
+
+  if (name.length < 2) {
+    return {
+      reply: "Escribe un nombre válido (mínimo 2 caracteres).",
+      done: false,
+    };
+  }
+
+  const customerId = await ensureSessionCustomer(session);
+  await updateCustomerName(customerId, name);
+  session.customerName = name;
+
+  const continueOrder = session.pendingAction === "order";
+  session.pendingAction = undefined;
+  session.state = "main_menu";
+
+  return {
+    reply: `✅ *¡Registro completado!*\n\nHola, *${name}*. Tus datos quedaron guardados.`,
+    done: !continueOrder,
+    continueOrder,
+  };
 }
 
 export async function buildProfileMenu(session: UserSession): Promise<string> {
@@ -313,6 +443,6 @@ export async function handleChooseSavedAddress(
   const selected = addresses[choice - 1];
   session.address = selected.line;
   session.addressAlias = selected.alias;
-  session.state = "confirm_order";
+  session.state = "choose_payment";
   return "";
 }

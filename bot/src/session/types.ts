@@ -1,5 +1,9 @@
+import type { PaymentMethod } from "../orders/types.js";
+
 export type BotState =
   | "main_menu"
+  | "view_menu_categories"
+  | "view_menu_items"
   | "browse_categories"
   | "browse_items"
   | "enter_quantity"
@@ -7,6 +11,8 @@ export type BotState =
   | "choose_saved_address"
   | "enter_address"
   | "save_address_prompt"
+  | "choose_payment"
+  | "enter_cash_amount"
   | "confirm_order"
   | "check_order_status"
   | "order_detail"
@@ -15,7 +21,9 @@ export type BotState =
   | "edit_name"
   | "address_menu"
   | "add_address_alias"
-  | "add_address_line";
+  | "add_address_line"
+  | "register_prompt"
+  | "register_name";
 
 export interface CartItem {
   itemId: string;
@@ -35,9 +43,14 @@ export interface UserSession {
   deliveryType?: "domicilio" | "recoger";
   address?: string;
   addressAlias?: string;
+  paymentMethod?: PaymentMethod;
+  cashPaid?: number;
+  changeDue?: number;
   selectedOrderId?: string;
   pendingAddressAlias?: string;
   pendingAddressLine?: string;
+  whatsappName?: string;
+  pendingAction?: "order";
 }
 
 export function createEmptySession(chatId: string): UserSession {
@@ -57,12 +70,32 @@ export function clearSessionFields(session: UserSession): UserSession {
   session.deliveryType = undefined;
   session.address = undefined;
   session.addressAlias = undefined;
+  session.paymentMethod = undefined;
+  session.cashPaid = undefined;
+  session.changeDue = undefined;
   session.selectedOrderId = undefined;
   session.pendingAddressAlias = undefined;
   session.pendingAddressLine = undefined;
+  session.whatsappName = undefined;
+  session.pendingAction = undefined;
   session.customerId = customerId;
   session.customerName = customerName;
   return session;
+}
+
+export function isOrderingState(state: BotState): boolean {
+  return [
+    "browse_categories",
+    "browse_items",
+    "enter_quantity",
+    "choose_delivery",
+    "choose_saved_address",
+    "enter_address",
+    "save_address_prompt",
+    "choose_payment",
+    "enter_cash_amount",
+    "confirm_order",
+  ].includes(state);
 }
 
 export function clearOrderingFields(session: UserSession): void {
@@ -72,6 +105,9 @@ export function clearOrderingFields(session: UserSession): void {
   session.deliveryType = undefined;
   session.address = undefined;
   session.addressAlias = undefined;
+  session.paymentMethod = undefined;
+  session.cashPaid = undefined;
+  session.changeDue = undefined;
   session.pendingAddressAlias = undefined;
   session.pendingAddressLine = undefined;
 }

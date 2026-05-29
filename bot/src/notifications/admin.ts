@@ -2,6 +2,7 @@ import { formatCurrency } from "../utils/format.js";
 import { sendTextMessage } from "../openwa/client.js";
 import { getAdminWhatsAppId } from "../restaurant/profile.js";
 import type { Order } from "../orders/types.js";
+import { formatPaymentDetail } from "../orders/payment.js";
 
 export async function notifyAdminNewOrder(order: Order): Promise<void> {
   const adminId = getAdminWhatsAppId();
@@ -28,8 +29,11 @@ export async function notifyAdminNewOrder(order: Order): Promise<void> {
 ${customer}${items}
 
 ${deliveryLine}
+${order.paymentMethod ? `\n${formatPaymentDetail(order.paymentMethod, order.cashPaid, order.changeDue)}` : ""}
 Total: *${formatCurrency(order.total)}*
 Estado: pendiente
+
+Se envió comprobante PDF con QR al cliente.
 
 Actualiza el estado en Firebase Console:
 restaurants → orders → #${order.id} → status`;

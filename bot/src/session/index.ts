@@ -6,6 +6,7 @@ import type { BotState, CartItem, UserSession } from "./types.js";
 const store = isFirebaseEnabled() ? firestoreStore : memoryStore;
 
 export type { BotState, CartItem, UserSession } from "./types.js";
+export { isOrderingState, clearSessionFields } from "./types.js";
 
 export const getSession = (chatId: string): Promise<UserSession> =>
   store.getSession(chatId);

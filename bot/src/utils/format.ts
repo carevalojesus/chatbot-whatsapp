@@ -19,6 +19,16 @@ export function normalizeText(text: string): string {
     .replace(/\p{Diacritic}/gu, "");
 }
 
+export function parseAmount(text: string): number | null {
+  const cleaned = text.trim().replace(/[^\d.,]/g, "").replace(",", ".");
+  if (!cleaned) return null;
+
+  const value = Number(cleaned);
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  return Math.round(value * 100) / 100;
+}
+
 export function parseChoice(text: string, max: number): number | null {
   const normalized = normalizeText(text);
   const match = normalized.match(/^(\d+)/);

@@ -10,8 +10,11 @@ export { MAX_ADDRESSES } from "./types.js";
 export const getCustomerByChatId = (chatId: string) =>
   store.getCustomerByChatId(chatId);
 
-export const getOrCreateCustomer = (chatId: string, name?: string) =>
-  store.getOrCreateCustomer(chatId, name);
+export const getOrCreateCustomer = (chatId: string) =>
+  store.getOrCreateCustomer(chatId);
+
+export const setRegistrationSkipped = (customerId: string) =>
+  store.setRegistrationSkipped(customerId);
 
 export const updateCustomerName = (customerId: string, name: string) =>
   store.updateCustomerName(customerId, name);

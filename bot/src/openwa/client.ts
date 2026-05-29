@@ -63,6 +63,37 @@ export async function sendTextMessage(chatId: string, text: string): Promise<voi
   }
 }
 
+export async function sendDocumentMessage(
+  chatId: string,
+  file: Buffer,
+  filename: string,
+  caption?: string,
+): Promise<void> {
+  const sessionId = await getSessionId();
+  const url = `${config.openwa.url}/api/sessions/${sessionId}/messages/send-document`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: await headers(),
+    body: JSON.stringify({
+      chatId,
+      base64: file.toString("base64"),
+      filename,
+      mimetype: "application/pdf",
+      caption,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+      error?: string;
+    } | null;
+    const message = body?.message ?? body?.error ?? response.statusText;
+    throw new Error(`OpenWA send-document falló (${response.status}): ${message}`);
+  }
+}
+
 export async function ensureSessionExists(): Promise<string> {
   try {
     return await getSessionId();

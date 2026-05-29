@@ -4,6 +4,7 @@ export interface Customer {
   phone?: string;
   name: string;
   orderCount: number;
+  registrationSkipped?: boolean;
   registeredAt: Date;
   lastOrderAt?: Date;
 }

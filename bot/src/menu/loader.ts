@@ -1,4 +1,4 @@
-import { formatCategoryMenu, formatFullMenu } from "./format.js";
+import { formatCategoryMenu, formatFullMenu, formatMenuOverview } from "./format.js";
 
 export type { Menu, MenuCategory, MenuItem } from "./types.js";
 export {
@@ -9,4 +9,4 @@ export {
   loadMenu,
   setMenu,
 } from "./data.js";
-export { formatCategoryMenu, formatFullMenu };
+export { formatCategoryMenu, formatFullMenu, formatMenuOverview };
