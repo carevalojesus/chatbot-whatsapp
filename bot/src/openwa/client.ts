@@ -1,68 +1,86 @@
 import { config } from "../config.js";
 
-interface OpenWaResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
+interface OpenWaSession {
+  id: string;
+  name: string;
+  status: string;
+}
+
+let cachedSessionId: string | null = config.openwa.sessionId || null;
+
+async function headers(): Promise<Record<string, string>> {
+  return {
+    "Content-Type": "application/json",
+    "X-API-Key": config.openwa.apiKey,
   };
 }
 
+export async function getSessionId(): Promise<string> {
+  if (cachedSessionId) return cachedSessionId;
+
+  const response = await fetch(`${config.openwa.url}/api/sessions`, {
+    headers: await headers(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`No se pudo listar sesiones OpenWA (${response.status})`);
+  }
+
+  const sessions = (await response.json()) as OpenWaSession[];
+  const session = sessions.find(
+    (entry) =>
+      entry.name === config.openwa.sessionName ||
+      entry.id === config.openwa.sessionName,
+  );
+
+  if (!session) {
+    throw new Error(
+      `Sesión '${config.openwa.sessionName}' no encontrada. Ejecuta ./scripts/register-webhook.sh`,
+    );
+  }
+
+  cachedSessionId = session.id;
+  return cachedSessionId;
+}
+
 export async function sendTextMessage(chatId: string, text: string): Promise<void> {
-  const url = `${config.openwa.url}/api/sessions/${config.openwa.sessionName}/messages/send-text`;
+  const sessionId = await getSessionId();
+  const url = `${config.openwa.url}/api/sessions/${sessionId}/messages/send-text`;
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": config.openwa.apiKey,
-    },
+    headers: await headers(),
     body: JSON.stringify({ chatId, text }),
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as OpenWaResponse | null;
-    const message = body?.error?.message ?? response.statusText;
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+      error?: string;
+    } | null;
+    const message = body?.message ?? body?.error ?? response.statusText;
     throw new Error(`OpenWA send-text falló (${response.status}): ${message}`);
   }
 }
 
-export async function ensureSessionExists(): Promise<void> {
-  const listUrl = `${config.openwa.url}/api/sessions`;
-  const listResponse = await fetch(listUrl, {
-    headers: { "X-API-Key": config.openwa.apiKey },
-  });
+export async function ensureSessionExists(): Promise<string> {
+  try {
+    return await getSessionId();
+  } catch {
+    const createUrl = `${config.openwa.url}/api/sessions`;
+    const createResponse = await fetch(createUrl, {
+      method: "POST",
+      headers: await headers(),
+      body: JSON.stringify({ name: config.openwa.sessionName }),
+    });
 
-  if (!listResponse.ok) {
-    throw new Error(`No se pudo listar sesiones OpenWA (${listResponse.status})`);
-  }
+    if (!createResponse.ok) {
+      throw new Error(`No se pudo crear la sesión (${createResponse.status})`);
+    }
 
-  const listBody = (await listResponse.json()) as OpenWaResponse<
-    Array<{ id: string; name: string }>
-  >;
-
-  const sessions = listBody.data ?? [];
-  const exists = sessions.some(
-    (session) =>
-      session.name === config.openwa.sessionName ||
-      session.id === config.openwa.sessionName,
-  );
-
-  if (exists) return;
-
-  const createUrl = `${config.openwa.url}/api/sessions`;
-  const createResponse = await fetch(createUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": config.openwa.apiKey,
-    },
-    body: JSON.stringify({ name: config.openwa.sessionName }),
-  });
-
-  if (!createResponse.ok) {
-    throw new Error(`No se pudo crear la sesión (${createResponse.status})`);
+    const session = (await createResponse.json()) as OpenWaSession;
+    cachedSessionId = session.id;
+    return session.id;
   }
 }
 
@@ -70,14 +88,12 @@ export async function registerWebhook(
   webhookUrl: string,
   secret: string,
 ): Promise<void> {
-  const url = `${config.openwa.url}/api/sessions/${config.openwa.sessionName}/webhooks`;
+  const sessionId = await getSessionId();
+  const url = `${config.openwa.url}/api/sessions/${sessionId}/webhooks`;
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": config.openwa.apiKey,
-    },
+    headers: await headers(),
     body: JSON.stringify({
       url: webhookUrl,
       events: ["message.received"],
@@ -85,23 +101,22 @@ export async function registerWebhook(
     }),
   });
 
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as OpenWaResponse | null;
-    const message = body?.error?.message ?? response.statusText;
-
-    if (response.status === 403 && message.toLowerCase().includes("limit")) {
-      return;
-    }
-
-    throw new Error(`No se pudo registrar webhook (${response.status}): ${message}`);
+  if (!response.ok && response.status !== 403) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(
+      `No se pudo registrar webhook (${response.status}): ${body?.message ?? response.statusText}`,
+    );
   }
 }
 
 export async function startSession(): Promise<void> {
-  const url = `${config.openwa.url}/api/sessions/${config.openwa.sessionName}/start`;
+  const sessionId = await getSessionId();
+  const url = `${config.openwa.url}/api/sessions/${sessionId}/start`;
 
   await fetch(url, {
     method: "POST",
-    headers: { "X-API-Key": config.openwa.apiKey },
+    headers: await headers(),
   });
 }

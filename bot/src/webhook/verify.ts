@@ -2,16 +2,19 @@ import crypto from "node:crypto";
 import { config } from "../config.js";
 
 export function verifyWebhookSignature(
-  payload: unknown,
+  rawBody: string,
   signature: string | undefined,
 ): boolean {
-  if (!signature) return false;
+  if (!signature) {
+    console.warn("Webhook sin firma X-OpenWA-Signature");
+    return false;
+  }
 
   const expected =
     "sha256=" +
     crypto
       .createHmac("sha256", config.webhookSecret)
-      .update(JSON.stringify(payload))
+      .update(rawBody)
       .digest("hex");
 
   try {

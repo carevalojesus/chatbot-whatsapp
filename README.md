@@ -12,34 +12,36 @@ Bot de pedidos para restaurante conectado a WhatsApp vía [OpenWA](https://www.o
 
 ## Requisitos
 
-- Docker Desktop
 - Node.js 20+
 - Git
+- Google Chrome (para Puppeteer / OpenWA)
 
 ## Inicio rápido
 
-### 1. Levantar OpenWA
+### 1. Configurar variables
+
+```bash
+cp .env.example .env
+# Edita .env con tu API key y secret de webhook
+```
+
+### 2. Levantar OpenWA (local)
 
 ```bash
 chmod +x scripts/*.sh
 ./scripts/setup-openwa.sh
 ```
 
-### 2. Configurar variables
+OpenWA corre en segundo plano en `http://localhost:2785`. Logs en `openwa-gateway/openwa.log`.
 
-```bash
-cp .env.example .env
-```
-
-Edita `.env` y pega tu `OPENWA_API_KEY` desde http://localhost:2886
-
-### 3. Registrar webhook y sesión
+### 3. Registrar webhook y conectar WhatsApp
 
 ```bash
 ./scripts/register-webhook.sh
+./scripts/show-qr.sh
 ```
 
-Escanea el QR en el dashboard con WhatsApp.
+Escanea el QR que se guarda en `qr-whatsapp.png` con WhatsApp.
 
 ### 4. Iniciar el bot
 
@@ -49,11 +51,20 @@ npm install
 npm run dev
 ```
 
-El bot escucha en http://localhost:3000/webhook
+El bot escucha en http://127.0.0.1:3000/webhook
 
 ### 5. Probar
 
-Envía **Hola** al número de WhatsApp conectado.
+Envía **Hola** desde **otro teléfono** (no desde el WhatsApp vinculado al bot).
+
+## Comandos útiles
+
+| Script | Descripción |
+|---|---|
+| `./scripts/setup-openwa.sh` | Instala y levanta OpenWA |
+| `./scripts/register-webhook.sh` | Registra el webhook del bot |
+| `./scripts/show-qr.sh` | Muestra QR para vincular WhatsApp |
+| `./scripts/stop-openwa.sh` | Detiene OpenWA |
 
 ## Flujo del bot
 
@@ -83,19 +94,12 @@ chatbot-whatsapp/
 │       ├── flows/       # Lógica del chatbot
 │       ├── menu/        # Carta JSON
 │       ├── orders/      # Almacén de pedidos (temporal)
+│       ├── session/     # Estado por usuario
+│       ├── webhook/     # Receptor + deduplicación
 │       └── openwa/      # Cliente API OpenWA
 ├── scripts/             # Setup OpenWA + webhook
-├── docker-compose.yml   # Bot en Docker (opcional)
-└── openwa-gateway/      # Clon de OpenWA (generado por setup)
+└── openwa-gateway/      # Clon de OpenWA (generado por setup, gitignored)
 ```
-
-## Bot en Docker (opcional)
-
-```bash
-docker compose up -d --build
-```
-
-Asegúrate de que `OPENWA_WEBHOOK_URL=http://host.docker.internal:3000/webhook` en `.env`.
 
 ## Próximos pasos
 
@@ -108,3 +112,4 @@ Asegúrate de que `OPENWA_WEBHOOK_URL=http://host.docker.internal:3000/webhook` 
 
 - OpenWA usa WhatsApp Web (no oficial). Usa un número dedicado.
 - Los pedidos se pierden al reiniciar el bot (hasta conectar Firebase).
+- El webhook debe usar `127.0.0.1`, no `localhost` (OpenWA lo rechaza).

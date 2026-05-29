@@ -1,4 +1,13 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
+
+dotenv.config({ path: path.join(rootDir, ".env") });
 
 function required(name: string, value: string | undefined): string {
   if (!value?.trim()) {
@@ -13,8 +22,9 @@ export const config = {
   deliveryFee: Number(process.env.DELIVERY_FEE ?? 5000),
   openwa: {
     url: (process.env.OPENWA_URL ?? "http://localhost:2785").replace(/\/$/, ""),
-    apiKey: process.env.OPENWA_API_KEY ?? "",
+    apiKey: process.env.OPENWA_API_KEY ?? "dev-admin-key",
     sessionName: process.env.OPENWA_SESSION_NAME ?? "restaurante",
+    sessionId: process.env.OPENWA_SESSION_ID ?? "",
   },
   webhookSecret: process.env.WEBHOOK_SECRET ?? "cambia-este-secreto",
 };
