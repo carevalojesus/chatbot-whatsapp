@@ -6,10 +6,10 @@ import {
   isDuplicateCrossChannel,
   isDuplicateEvent,
 } from "./dedupe.js";
-import { handleAdminCommand } from "../flows/adminFlow.js";
+import { handleAdminCommand, getAdminHelpText, isAdminCommandText } from "../flows/adminFlow.js";
 import { handleIncomingMessage } from "../flows/orderFlow.js";
 import { sendTextMessage } from "../openwa/client.js";
-import { isAdminChatId } from "../restaurant/profile.js";
+import { isAdminChatId, rememberAdminChatId } from "../restaurant/profile.js";
 import { verifyWebhookSignature } from "./verify.js";
 
 export interface MessageReceivedPayload {
@@ -94,6 +94,8 @@ export async function handleWebhook(
   const customerName = data.contact?.pushName ?? data.contact?.name;
 
   if (isAdminChatId(data.from)) {
+    rememberAdminChatId(data.from);
+
     const adminResult = await handleAdminCommand(text);
     if (adminResult) {
       await sendTextMessage(data.from, adminResult.reply);
@@ -107,6 +109,21 @@ export async function handleWebhook(
 
       return { status: 200, body: "OK" };
     }
+
+    if (isAdminCommandText(text) || text.startsWith("/")) {
+      await sendTextMessage(data.from, getAdminHelpText());
+      console.log(`Ayuda admin enviada a ${data.from}`);
+      return { status: 200, body: "OK" };
+    }
+  }
+
+  if (isAdminCommandText(text)) {
+    console.warn(`Comando admin no autorizado desde ${data.from}`);
+    await sendTextMessage(
+      data.from,
+      "⚠️ Este número no está autorizado como admin.\n\nAgrega tu ID de chat en RESTAURANT_ADMIN_CHAT_IDS en .env",
+    );
+    return { status: 200, body: "OK" };
   }
 
   const reply = await handleIncomingMessage(data.from, text, customerName);

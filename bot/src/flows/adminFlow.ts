@@ -31,6 +31,14 @@ Ejemplos:
   /listo 1001`;
 }
 
+export function getAdminHelpText(): string {
+  return helpText();
+}
+
+export function isAdminCommandText(text: string): boolean {
+  return parseAdminCommand(text) !== null;
+}
+
 export async function handleAdminCommand(
   text: string,
 ): Promise<AdminCommandResult | null> {

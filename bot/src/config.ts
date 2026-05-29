@@ -35,6 +35,14 @@ function required(name: string, value: string | undefined): string {
   return value.trim();
 }
 
+function parseAdminChatIds(adminPhone: string): string[] {
+  const fromEnv = process.env.RESTAURANT_ADMIN_CHAT_IDS?.trim();
+  if (fromEnv) {
+    return fromEnv.split(",").map((id) => id.trim()).filter(Boolean);
+  }
+  return [`${adminPhone}@c.us`];
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   restaurantName: process.env.RESTAURANT_NAME ?? "La Curva del Paraíso",
@@ -45,6 +53,7 @@ export const config = {
     deliveryFee: Number(process.env.DELIVERY_FEE ?? 8),
     adminPhone: normalizeAdminPhone(process.env.RESTAURANT_ADMIN_PHONE ?? "933240664"),
     adminWhatsAppId: "",
+    adminChatIds: [] as string[],
     schedule: process.env.RESTAURANT_SCHEDULE ?? "Lun–Dom 11:00 – 22:00",
     deliveryZone:
       process.env.RESTAURANT_DELIVERY_ZONE ?? "Zona centro (consultar cobertura)",
@@ -79,6 +88,10 @@ function normalizeAdminPhone(phone: string): string {
 }
 
 config.restaurant.adminWhatsAppId = `${config.restaurant.adminPhone}@c.us`;
+config.restaurant.adminChatIds = parseAdminChatIds(config.restaurant.adminPhone);
+if (!config.restaurant.adminChatIds.includes(config.restaurant.adminWhatsAppId)) {
+  config.restaurant.adminChatIds.push(config.restaurant.adminWhatsAppId);
+}
 
 export function assertOpenWaConfig(): void {
   required("OPENWA_API_KEY", config.openwa.apiKey);

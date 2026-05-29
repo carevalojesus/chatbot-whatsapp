@@ -9,6 +9,7 @@ export interface RestaurantProfile {
   deliveryFee: number;
   adminPhone: string;
   adminWhatsAppId: string;
+  adminChatIds: string[];
   schedule: string;
   deliveryZone: string;
   currency: string;
@@ -24,6 +25,7 @@ function buildDefaultProfile(): RestaurantProfile {
     deliveryFee: config.restaurant.deliveryFee,
     adminPhone: config.restaurant.adminPhone,
     adminWhatsAppId: config.restaurant.adminWhatsAppId,
+    adminChatIds: [...config.restaurant.adminChatIds],
     schedule: config.restaurant.schedule,
     deliveryZone: config.restaurant.deliveryZone,
     currency: config.restaurant.currency,
@@ -48,14 +50,24 @@ export function getAdminWhatsAppId(): string {
 }
 
 export function isAdminChatId(chatId: string): boolean {
-  const { adminWhatsAppId, adminPhone } = getRestaurantProfile();
+  const { adminWhatsAppId, adminPhone, adminChatIds } = getRestaurantProfile();
+
+  if (adminChatIds.includes(chatId)) {
+    return true;
+  }
 
   if (chatId === adminWhatsAppId) {
     return true;
   }
 
   const chatPhone = chatId.split("@")[0]?.replace(/\D/g, "") ?? "";
-  return chatPhone.length > 0 && chatPhone === adminPhone;
+  return chatPhone.length >= 9 && chatPhone === adminPhone;
+}
+
+export function rememberAdminChatId(chatId: string): void {
+  if (!profile.adminChatIds.includes(chatId)) {
+    profile.adminChatIds.push(chatId);
+  }
 }
 
 export async function loadRestaurantProfile(): Promise<RestaurantProfile> {
@@ -79,6 +91,9 @@ export async function loadRestaurantProfile(): Promise<RestaurantProfile> {
     deliveryFee: data.deliveryFee ?? config.restaurant.deliveryFee,
     adminPhone: data.adminPhone ?? config.restaurant.adminPhone,
     adminWhatsAppId: data.adminWhatsAppId ?? config.restaurant.adminWhatsAppId,
+    adminChatIds: data.adminChatIds?.length
+      ? data.adminChatIds
+      : [...config.restaurant.adminChatIds],
     schedule: data.schedule ?? config.restaurant.schedule,
     deliveryZone: data.deliveryZone ?? config.restaurant.deliveryZone,
     currency: data.currency ?? config.restaurant.currency,

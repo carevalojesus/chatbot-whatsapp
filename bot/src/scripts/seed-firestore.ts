@@ -42,6 +42,7 @@ async function seed(): Promise<void> {
     deliveryFee: Number(process.env.DELIVERY_FEE ?? 8),
     adminPhone,
     adminWhatsAppId: toWhatsAppId(adminPhone),
+    adminChatIds: config.restaurant.adminChatIds,
     schedule: process.env.RESTAURANT_SCHEDULE ?? "Mar–Dom 11:00 – 17:00 (cerrado lunes)",
     deliveryZone:
       process.env.RESTAURANT_DELIVERY_ZONE ?? "Surco, Miraflores y alrededores",
