@@ -1,0 +1,70 @@
+{
+  "categories": [
+    {
+      "id": "entradas",
+      "name": "Entradas",
+      "items": [
+        {
+          "id": "empanadas",
+          "name": "Empanadas (x3)",
+          "description": "Carne, pollo o queso",
+          "price": 12000
+        },
+        {
+          "id": "papas",
+          "name": "Papas criollas",
+          "description": "Con suero costeño",
+          "price": 9000
+        }
+      ]
+    },
+    {
+      "id": "principales",
+      "name": "Platos principales",
+      "items": [
+        {
+          "id": "bandeja",
+          "name": "Bandeja paisa",
+          "description": "Arroz, frijol, chicharrón, huevo, aguacate",
+          "price": 28000
+        },
+        {
+          "id": "pollo",
+          "name": "Pollo a la plancha",
+          "description": "Con ensalada y arroz",
+          "price": 22000
+        },
+        {
+          "id": "pescado",
+          "name": "Pescado frito",
+          "description": "Con patacón y ensalada",
+          "price": 26000
+        }
+      ]
+    },
+    {
+      "id": "bebidas",
+      "name": "Bebidas",
+      "items": [
+        {
+          "id": "limonada",
+          "name": "Limonada natural",
+          "description": "Vaso 400 ml",
+          "price": 5000
+        },
+        {
+          "id": "gaseosa",
+          "name": "Gaseosa",
+          "description": "Postobón o Coca-Cola",
+          "price": 4500
+        },
+        {
+          "id": "cafe",
+          "name": "Café tinto",
+          "description": "Caliente o frío",
+          "price": 3500
+        }
+      ]
+    }
+  ]
+}
