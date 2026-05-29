@@ -1,8 +1,13 @@
+import { getRestaurantProfile } from "../restaurant/profile.js";
+
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-CO", {
+  const { currency } = getRestaurantProfile();
+  const locale = currency === "PEN" ? "es-PE" : "es-CO";
+
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
+    currency,
+    maximumFractionDigits: currency === "PEN" ? 2 : 0,
   }).format(amount);
 }
 

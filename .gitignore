@@ -6,3 +6,5 @@ dist/
 openwa-gateway/
 qr-whatsapp.png
 .openwa.pid
+firebase-service-account.json
+*-firebase-adminsdk-*.json

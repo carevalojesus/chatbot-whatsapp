@@ -1,44 +1,218 @@
 {
   "categories": [
     {
-      "id": "entradas",
-      "name": "Entradas",
+      "id": "ceviches",
+      "name": "Ceviches",
       "items": [
         {
-          "id": "empanadas",
-          "name": "Empanadas (x3)",
-          "description": "Carne, pollo o queso",
-          "price": 12000
+          "id": "ceviche-pescado",
+          "name": "Ceviche de pescado",
+          "description": "Pesca del día en leche de tigre, cebolla roja, ají limo y camote",
+          "price": 42
         },
         {
-          "id": "papas",
-          "name": "Papas criollas",
-          "description": "Con suero costeño",
-          "price": 9000
+          "id": "ceviche-mixto",
+          "name": "Ceviche mixto",
+          "description": "Pescado, pulpo, conchas y calamares en leche de tigre",
+          "price": 58
+        },
+        {
+          "id": "ceviche-mariscos",
+          "name": "Ceviche de mariscos",
+          "description": "Langostinos, conchas negras y pulpo al estilo norteño",
+          "price": 55
+        },
+        {
+          "id": "ceviche-pulpo",
+          "name": "Ceviche de pulpo",
+          "description": "Pulpo tierno, rocoto, choclo y cancha serrana",
+          "price": 52
+        },
+        {
+          "id": "ceviche-conchas",
+          "name": "Ceviche de conchas negras",
+          "description": "Conchas frescas, ají amarillo y toque de culantro",
+          "price": 48
+        },
+        {
+          "id": "ceviche-tricolor",
+          "name": "Ceviche tricolor",
+          "description": "Pescado, pulpo y langostinos con tres tipos de ají",
+          "price": 62
+        },
+        {
+          "id": "ceviche-deconstruido",
+          "name": "Ceviche deconstruido",
+          "description": "Cubos de pescado, espuma de ají limo y chips de camote",
+          "price": 45
         }
       ]
     },
     {
-      "id": "principales",
-      "name": "Platos principales",
+      "id": "tiraditos",
+      "name": "Tiraditos",
       "items": [
         {
-          "id": "bandeja",
-          "name": "Bandeja paisa",
-          "description": "Arroz, frijol, chicharrón, huevo, aguacate",
-          "price": 28000
+          "id": "tiradito-ají-amarillo",
+          "name": "Tiradito en ají amarillo",
+          "description": "Láminas de pescado con crema de ají amarillo y pecanas",
+          "price": 44
         },
         {
-          "id": "pollo",
-          "name": "Pollo a la plancha",
-          "description": "Con ensalada y arroz",
-          "price": 22000
+          "id": "tiradito-acevichado",
+          "name": "Tiradito acevichado",
+          "description": "Pescado fino bañado en leche de tigre clásica",
+          "price": 42
         },
         {
-          "id": "pescado",
-          "name": "Pescado frito",
-          "description": "Con patacón y ensalada",
-          "price": 26000
+          "id": "tiradito-parmesano",
+          "name": "Tiradito al parmesano",
+          "description": "Láminas de pescado con salsa de parmesano y limón",
+          "price": 46
+        }
+      ]
+    },
+    {
+      "id": "entradas",
+      "name": "Entradas y para picar",
+      "items": [
+        {
+          "id": "chicharron-pescado",
+          "name": "Chicharrón de pescado",
+          "description": "Trozos crujientes con sarza criolla y yuca frita",
+          "price": 38
+        },
+        {
+          "id": "chicharron-mixto",
+          "name": "Chicharrón mixto",
+          "description": "Pescado, mariscos y calamares fritos con tártara",
+          "price": 48
+        },
+        {
+          "id": "anticuchos",
+          "name": "Anticuchos (2 brochetas)",
+          "description": "Corazón de res a la parrilla con papa y choclo",
+          "price": 28
+        },
+        {
+          "id": "conchas-fritas",
+          "name": "Conchas a la parmesana",
+          "description": "Conchas gratinadas con mantequilla y queso",
+          "price": 36
+        },
+        {
+          "id": "jalea-mixta",
+          "name": "Jalea mixta",
+          "description": "Fritura de pescado y mariscos con cebolla y limón",
+          "price": 52
+        },
+        {
+          "id": "pescado-a-la-parrilla",
+          "name": "Pescado a la parrilla",
+          "description": "Filete entero con ensalada y arroz",
+          "price": 45
+        }
+      ]
+    },
+    {
+      "id": "causas",
+      "name": "Causas",
+      "items": [
+        {
+          "id": "causa-limena",
+          "name": "Causa limeña",
+          "description": "Papa amarilla, pollo deshilachado, palta y huevo",
+          "price": 26
+        },
+        {
+          "id": "causa-langostinos",
+          "name": "Causa de langostinos",
+          "description": "Langostinos en mayonesa sobre causa rellena",
+          "price": 32
+        },
+        {
+          "id": "causa-acevichada",
+          "name": "Causa acevichada",
+          "description": "Causa rellena con ceviche de pescado encima",
+          "price": 34
+        }
+      ]
+    },
+    {
+      "id": "calientes",
+      "name": "Platos calientes",
+      "items": [
+        {
+          "id": "parihuela",
+          "name": "Parihuela",
+          "description": "Sopa de mariscos con pescado, langostinos y mejillones",
+          "price": 48
+        },
+        {
+          "id": "arroz-mariscos",
+          "name": "Arroz con mariscos",
+          "description": "Arroz verde con langostinos, calamares y conchas",
+          "price": 46
+        },
+        {
+          "id": "tallarin-saltado-mariscos",
+          "name": "Tallarín saltado de mariscos",
+          "description": "Fettuccine salteado con mariscos al wok",
+          "price": 44
+        },
+        {
+          "id": "sudado-pescado",
+          "name": "Sudado de pescado",
+          "description": "Guiso de pescado con tomate, cebolla y ají panca",
+          "price": 40
+        },
+        {
+          "id": "chupe-camarones",
+          "name": "Chupe de camarones",
+          "description": "Sopa espesa con camarones, queso, huevo y leche",
+          "price": 50
+        }
+      ]
+    },
+    {
+      "id": "guarniciones",
+      "name": "Guarniciones",
+      "items": [
+        {
+          "id": "arroz",
+          "name": "Arroz blanco",
+          "description": "Porción individual",
+          "price": 8
+        },
+        {
+          "id": "yuca-frita",
+          "name": "Yuca frita",
+          "description": "Porción con huancaína o salsa criolla",
+          "price": 12
+        },
+        {
+          "id": "choclo",
+          "name": "Choclo serrano",
+          "description": "Mazorca cocida con queso fresco",
+          "price": 10
+        },
+        {
+          "id": "cancha",
+          "name": "Cancha serrana",
+          "description": "Maíz tostado crocante",
+          "price": 6
+        },
+        {
+          "id": "camote-frito",
+          "name": "Camote frito",
+          "description": "Porción de camote en bastones",
+          "price": 10
+        },
+        {
+          "id": "porcion-papa",
+          "name": "Porción de papa sancochada",
+          "description": "Ideal para acompañar ceviche",
+          "price": 8
         }
       ]
     },
@@ -47,22 +221,76 @@
       "name": "Bebidas",
       "items": [
         {
+          "id": "chicha-morada",
+          "name": "Chicha morada",
+          "description": "Vaso 500 ml, casera",
+          "price": 10
+        },
+        {
           "id": "limonada",
-          "name": "Limonada natural",
-          "description": "Vaso 400 ml",
-          "price": 5000
+          "name": "Limonada frozen",
+          "description": "Clásica o hierbabuena",
+          "price": 12
+        },
+        {
+          "id": "maracuya",
+          "name": "Refresco de maracuyá",
+          "description": "Vaso 500 ml",
+          "price": 12
+        },
+        {
+          "id": "agua-mineral",
+          "name": "Agua mineral",
+          "description": "Con o sin gas 625 ml",
+          "price": 5
         },
         {
           "id": "gaseosa",
           "name": "Gaseosa",
-          "description": "Postobón o Coca-Cola",
-          "price": 4500
+          "description": "Inca Kola, Coca-Cola o Sprite",
+          "price": 6
         },
         {
-          "id": "cafe",
-          "name": "Café tinto",
-          "description": "Caliente o frío",
-          "price": 3500
+          "id": "cerveza",
+          "name": "Cerveza nacional",
+          "description": "Cusqueña, Pilsen o Cristal 630 ml",
+          "price": 14
+        },
+        {
+          "id": "chela-michelada",
+          "name": "Chela michelada",
+          "description": "Cerveza con limón, sal y ají",
+          "price": 16
+        }
+      ]
+    },
+    {
+      "id": "postres",
+      "name": "Postres",
+      "items": [
+        {
+          "id": "suspiro-limeno",
+          "name": "Suspiro a la limeña",
+          "description": "Manjar blanco con merengue y oporto",
+          "price": 16
+        },
+        {
+          "id": "mazamorra",
+          "name": "Mazamorra morada",
+          "description": "Con arroz con leche y canela",
+          "price": 14
+        },
+        {
+          "id": "picarones",
+          "name": "Picarones (4 unidades)",
+          "description": "Con miel de chancaca",
+          "price": 15
+        },
+        {
+          "id": "cheesecake-maracuya",
+          "name": "Cheesecake de maracuyá",
+          "description": "Porción individual",
+          "price": 18
         }
       ]
     }

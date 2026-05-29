@@ -1,5 +1,11 @@
 import { config } from "../config.js";
-import { eventKey, isDuplicateBurst, isDuplicateEvent } from "./dedupe.js";
+import { getRestaurantName } from "../restaurant/profile.js";
+import {
+  eventKey,
+  isDuplicateBurst,
+  isDuplicateCrossChannel,
+  isDuplicateEvent,
+} from "./dedupe.js";
 import { handleIncomingMessage } from "../flows/orderFlow.js";
 import { sendTextMessage } from "../openwa/client.js";
 import { verifyWebhookSignature } from "./verify.js";
@@ -8,6 +14,7 @@ export interface MessageReceivedPayload {
   event: "message.received";
   sessionId: string;
   timestamp: string;
+  deliveryId?: string;
   idempotencyKey?: string;
   data: {
     id: string;
@@ -28,6 +35,7 @@ export async function handleWebhook(
   rawBody: string,
   signature: string | undefined,
   idempotencyHeader?: string,
+  deliveryIdHeader?: string,
 ): Promise<{ status: number; body: string }> {
   if (!verifyWebhookSignature(rawBody, signature)) {
     console.warn("Webhook rechazado: firma inválida");
@@ -58,6 +66,7 @@ export async function handleWebhook(
 
   const dedupeKey = eventKey(
     idempotencyHeader ?? payload.idempotencyKey,
+    deliveryIdHeader ?? payload.deliveryId,
     data.id,
     data.from,
     text,
@@ -68,7 +77,12 @@ export async function handleWebhook(
     return { status: 200, body: "OK" };
   }
 
-  if (isDuplicateBurst(text)) {
+  if (isDuplicateCrossChannel(text)) {
+    console.log(`Mensaje duplicado ignorado (cross: "${text}")`);
+    return { status: 200, body: "OK" };
+  }
+
+  if (isDuplicateBurst(data.from, text)) {
     console.log(`Mensaje duplicado ignorado (burst: "${text}")`);
     return { status: 200, body: "OK" };
   }
@@ -76,7 +90,7 @@ export async function handleWebhook(
   console.log(`Mensaje de ${data.from}: "${text}"`);
 
   const customerName = data.contact?.pushName ?? data.contact?.name;
-  const reply = handleIncomingMessage(data.from, text, customerName);
+  const reply = await handleIncomingMessage(data.from, text, customerName);
 
   if (reply) {
     await sendTextMessage(data.from, reply);
@@ -88,5 +102,5 @@ export async function handleWebhook(
 
 export function logWebhookReady(): void {
   console.log(`Webhook activo en http://127.0.0.1:${config.port}/webhook`);
-  console.log(`Restaurante: ${config.restaurantName}`);
+  console.log(`Restaurante: ${getRestaurantName()}`);
 }

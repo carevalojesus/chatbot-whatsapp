@@ -1,22 +1,26 @@
-import { config } from "../config.js";
+import { getMenu, getCategoryByIndex, getItemByIndex } from "../menu/data.js";
 import {
   formatCategoryMenu,
   formatFullMenu,
-  getCategoryByIndex,
-  getItemByIndex,
-  getMenu,
-} from "../menu/loader.js";
-import { createOrder, getLatestOrder, getOrdersForChat } from "../orders/store.js";
+} from "../menu/format.js";
+import { createOrder, getOrdersForChat, type Order } from "../orders/index.js";
+import { notifyAdminNewOrder } from "../notifications/admin.js";
+import {
+  getDeliveryFee,
+  getRestaurantName,
+  getRestaurantProfile,
+} from "../restaurant/profile.js";
 import {
   getSession,
   resetSession,
+  saveSession,
   type CartItem,
   type UserSession,
-} from "../session/store.js";
+} from "../session/index.js";
 import { formatCurrency, normalizeText, parseChoice } from "../utils/format.js";
 
 function mainMenu(): string {
-  return `¡Hola! Bienvenido a *${config.restaurantName}* 🍽️
+  return `¡Hola! Bienvenido a *${getRestaurantName()}* 🍽️
 
 ¿Qué deseas hacer?
 
@@ -28,65 +32,98 @@ function mainMenu(): string {
 Escribe el *número* de la opción.`;
 }
 
-const HELP_TEXT = `ℹ️ *Ayuda*
+function helpText(): string {
+  const profile = getRestaurantProfile();
+  return `ℹ️ *Ayuda*
 
 • Escribe *hola* o *menu* para volver al inicio
 • Durante un pedido, *0* te lleva un paso atrás
 • *cancelar* aborta el pedido actual
 
-Horario: Lun–Dom 11:00 – 22:00
-Domicilio disponible en la zona centro.`;
+Horario: ${profile.schedule}
+Domicilio: ${profile.deliveryZone}`;
+}
 
-export function handleIncomingMessage(
+export async function handleIncomingMessage(
   chatId: string,
   text: string,
   customerName?: string,
-): string {
-  const session = getSession(chatId);
+): Promise<string> {
+  const session = await getSession(chatId);
   if (customerName) {
     session.customerName = customerName;
   }
 
   const normalized = normalizeText(text);
 
+  let skipSave = false;
+  let reply: string;
+
   if (isGlobalCommand(normalized)) {
-    resetSession(chatId);
-    return mainMenu();
+    await resetSession(chatId);
+    skipSave = true;
+    reply = mainMenu();
+  } else if (normalized === "cancelar" && session.state !== "main_menu") {
+    await resetSession(chatId);
+    skipSave = true;
+    reply = "Pedido cancelado. Escribe *hola* cuando quieras volver a pedir.";
+  } else {
+    switch (session.state) {
+      case "main_menu":
+        reply = await handleMainMenu(session, text);
+        break;
+      case "browse_categories":
+        reply = handleBrowseCategories(session, text);
+        break;
+      case "browse_items":
+        reply = handleBrowseItems(session, text);
+        break;
+      case "enter_quantity":
+        reply = handleEnterQuantity(session, text);
+        break;
+      case "choose_delivery":
+        reply = handleChooseDelivery(session, text);
+        break;
+      case "enter_address":
+        reply = handleEnterAddress(session, text);
+        break;
+      case "confirm_order":
+        reply = await handleConfirmOrder(session, text);
+        if (
+          normalized === "0" ||
+          normalized === "no" ||
+          normalized === "si" ||
+          normalized === "sí" ||
+          normalized === "confirmar"
+        ) {
+          skipSave = true;
+        }
+        break;
+      case "check_order_status": {
+        const statusResult = await handleCheckOrderStatus(session, text);
+        reply = statusResult.reply;
+        skipSave = statusResult.skipSave;
+        break;
+      }
+      default:
+        await resetSession(chatId);
+        skipSave = true;
+        reply = mainMenu();
+    }
   }
 
-  if (normalized === "cancelar" && session.state !== "main_menu") {
-    resetSession(chatId);
-    return "Pedido cancelado. Escribe *hola* cuando quieras volver a pedir.";
+  if (!skipSave) {
+    await saveSession(session);
   }
 
-  switch (session.state) {
-    case "main_menu":
-      return handleMainMenu(session, text);
-    case "browse_categories":
-      return handleBrowseCategories(session, text);
-    case "browse_items":
-      return handleBrowseItems(session, text);
-    case "enter_quantity":
-      return handleEnterQuantity(session, text);
-    case "choose_delivery":
-      return handleChooseDelivery(session, text);
-    case "enter_address":
-      return handleEnterAddress(session, text);
-    case "confirm_order":
-      return handleConfirmOrder(session, text);
-    case "check_order_status":
-      return handleCheckOrderStatus(session, text);
-    default:
-      resetSession(chatId);
-      return mainMenu();
-  }
+  return reply;
 }
 
 function isGlobalCommand(text: string): boolean {
   return ["hola", "menu", "inicio", "start", "hi", "hello"].includes(text);
 }
 
-function handleMainMenu(session: UserSession, text: string): string {
+async function handleMainMenu(session: UserSession, text: string): Promise<string> {
   const choice = parseChoice(text, 4);
   if (!choice) {
     return `No entendí esa opción.\n\n${mainMenu()}`;
@@ -94,15 +131,15 @@ function handleMainMenu(session: UserSession, text: string): string {
 
   switch (choice) {
     case 1:
-      return `${formatFullMenu()}\n\nEscribe *2* para hacer un pedido.`;
+      return `${formatFullMenu(getMenu().categories)}\n\nEscribe *2* para hacer un pedido.`;
     case 2:
       session.state = "browse_categories";
       return buildCategoriesPrompt(true);
     case 3:
       session.state = "check_order_status";
-      return formatOrderStatusList(session.chatId);
+      return await formatOrderStatusList(session.chatId);
     case 4:
-      return HELP_TEXT;
+      return helpText();
     default:
       return mainMenu();
   }
@@ -126,7 +163,8 @@ function buildCategoriesPrompt(isOrdering: boolean): string {
 function handleBrowseCategories(session: UserSession, text: string): string {
   const normalized = normalizeText(text);
   if (normalized === "0") {
-    resetSession(session.chatId);
+    session.state = "main_menu";
+    clearSessionFields(session);
     return mainMenu();
   }
 
@@ -137,7 +175,7 @@ function handleBrowseCategories(session: UserSession, text: string): string {
     session.state = "choose_delivery";
     return `🚚 ¿Cómo deseas recibir tu pedido?
 
-1️⃣ Domicilio (+${formatCurrency(config.deliveryFee)})
+1️⃣ Domicilio (+${formatCurrency(getDeliveryFee())})
 2️⃣ Recoger en local
 
 *0* para volver.`;
@@ -255,7 +293,7 @@ function handleChooseDelivery(session: UserSession, text: string): string {
 
   const choice = parseChoice(text, 2);
   if (!choice) {
-    return `Elige una opción:\n\n1️⃣ Domicilio (+${formatCurrency(config.deliveryFee)})\n2️⃣ Recoger en local\n\n*0* para volver.`;
+    return `Elige una opción:\n\n1️⃣ Domicilio (+${formatCurrency(getDeliveryFee())})\n2️⃣ Recoger en local\n\n*0* para volver.`;
   }
 
   session.deliveryType = choice === 1 ? "domicilio" : "recoger";
@@ -280,11 +318,14 @@ function handleEnterAddress(session: UserSession, text: string): string {
   return buildOrderConfirmation(session);
 }
 
-function handleConfirmOrder(session: UserSession, text: string): string {
+async function handleConfirmOrder(
+  session: UserSession,
+  text: string,
+): Promise<string> {
   const normalized = normalizeText(text);
 
   if (normalized === "0" || normalized === "no") {
-    resetSession(session.chatId);
+    await resetSession(session.chatId);
     return "Pedido cancelado. Escribe *hola* cuando quieras volver.";
   }
 
@@ -294,9 +335,9 @@ function handleConfirmOrder(session: UserSession, text: string): string {
 
   const subtotal = calculateSubtotal(session.cart);
   const deliveryFee =
-    session.deliveryType === "domicilio" ? config.deliveryFee : 0;
+    session.deliveryType === "domicilio" ? getDeliveryFee() : 0;
 
-  const order = createOrder({
+  const order = await createOrder({
     chatId: session.chatId,
     customerName: session.customerName,
     items: session.cart.map((item) => ({ ...item })),
@@ -308,7 +349,8 @@ function handleConfirmOrder(session: UserSession, text: string): string {
     status: "pendiente",
   });
 
-  resetSession(session.chatId);
+  await resetSession(session.chatId);
+  await notifyAdminNewOrder(order);
 
   const deliveryLine =
     order.deliveryType === "domicilio"
@@ -329,27 +371,44 @@ Te avisaremos cuando esté listo.
 Escribe *hola* para hacer otro pedido.`;
 }
 
-function handleCheckOrderStatus(session: UserSession, text: string): string {
+async function handleCheckOrderStatus(
+  session: UserSession,
+  text: string,
+): Promise<{ reply: string; skipSave: boolean }> {
   const normalized = normalizeText(text);
   if (normalized === "0") {
-    resetSession(session.chatId);
-    return mainMenu();
+    await resetSession(session.chatId);
+    return { reply: mainMenu(), skipSave: true };
   }
 
-  const orders = getOrdersForChat(session.chatId);
+  const orders = await getOrdersForChat(session.chatId);
   if (!orders.length) {
-    resetSession(session.chatId);
-    return "No tienes pedidos registrados.\n\nEscribe *2* para hacer tu primer pedido.";
+    await resetSession(session.chatId);
+    return {
+      reply: "No tienes pedidos registrados.\n\nEscribe *2* para hacer tu primer pedido.",
+      skipSave: true,
+    };
   }
 
   const choice = parseChoice(text, orders.length);
   if (choice) {
     const order = orders[choice - 1];
-    resetSession(session.chatId);
-    return formatSingleOrder(order);
+    await resetSession(session.chatId);
+    return { reply: formatSingleOrder(order), skipSave: true };
   }
 
-  return `${formatOrderStatusList(session.chatId)}\n\nEscribe el *número* del pedido o *0* para volver.`;
+  return {
+    reply: `${await formatOrderStatusList(session.chatId)}\n\nEscribe el *número* del pedido o *0* para volver.`,
+    skipSave: false,
+  };
+}
+
+function clearSessionFields(session: UserSession): void {
+  session.cart = [];
+  session.selectedCategoryIndex = undefined;
+  session.pendingItemIndex = undefined;
+  session.deliveryType = undefined;
+  session.address = undefined;
 }
 
 function addToCart(session: UserSession, item: CartItem): void {
@@ -386,7 +445,7 @@ function formatCartSummary(session: UserSession): string {
 function buildOrderConfirmation(session: UserSession): string {
   const subtotal = calculateSubtotal(session.cart);
   const deliveryFee =
-    session.deliveryType === "domicilio" ? config.deliveryFee : 0;
+    session.deliveryType === "domicilio" ? getDeliveryFee() : 0;
 
   const lines = [
     "📋 *Confirma tu pedido*\n",
@@ -420,9 +479,7 @@ function formatOrderItems(
     .join("\n");
 }
 
-function formatSingleOrder(
-  order: NonNullable<ReturnType<typeof getLatestOrder>>,
-): string {
+function formatSingleOrder(order: Order): string {
   const statusLabel = {
     pendiente: "⏳ Pendiente",
     confirmado: "👨‍🍳 En preparación",
@@ -441,11 +498,11 @@ ${deliveryLine}
 ${formatOrderItems(order.items)}
 
 Total: *${formatCurrency(order.total)}*
-Fecha: ${order.createdAt.toLocaleString("es-CO")}`;
+Fecha: ${order.createdAt.toLocaleString("es-PE")}`;
 }
 
-function formatOrderStatusList(chatId: string): string {
-  const orders = getOrdersForChat(chatId);
+async function formatOrderStatusList(chatId: string): Promise<string> {
+  const orders = await getOrdersForChat(chatId);
   if (!orders.length) {
     return "No tienes pedidos registrados.";
   }

@@ -1,29 +1,10 @@
-export type OrderStatus = "pendiente" | "confirmado" | "entregado";
-
-export interface Order {
-  id: string;
-  chatId: string;
-  customerName?: string;
-  items: Array<{
-    itemId: string;
-    name: string;
-    unitPrice: number;
-    quantity: number;
-  }>;
-  deliveryType: "domicilio" | "recoger";
-  address?: string;
-  subtotal: number;
-  deliveryFee: number;
-  total: number;
-  status: OrderStatus;
-  createdAt: Date;
-}
+import type { CreateOrderInput, Order } from "./types.js";
 
 let orderCounter = 1000;
 const ordersById = new Map<string, Order>();
 const ordersByChat = new Map<string, string[]>();
 
-export function createOrder(input: Omit<Order, "id" | "createdAt">): Order {
+export async function createOrder(input: CreateOrderInput): Promise<Order> {
   orderCounter += 1;
   const id = String(orderCounter);
 
@@ -42,17 +23,19 @@ export function createOrder(input: Omit<Order, "id" | "createdAt">): Order {
   return order;
 }
 
-export function getOrder(orderId: string): Order | undefined {
+export async function getOrder(orderId: string): Promise<Order | undefined> {
   return ordersById.get(orderId);
 }
 
-export function getLatestOrder(chatId: string): Order | undefined {
+export async function getLatestOrder(
+  chatId: string,
+): Promise<Order | undefined> {
   const ids = ordersByChat.get(chatId);
   if (!ids?.length) return undefined;
   return ordersById.get(ids[0]);
 }
 
-export function getOrdersForChat(chatId: string): Order[] {
+export async function getOrdersForChat(chatId: string): Promise<Order[]> {
   const ids = ordersByChat.get(chatId) ?? [];
   return ids
     .map((id) => ordersById.get(id))

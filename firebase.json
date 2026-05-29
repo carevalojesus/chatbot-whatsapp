@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "chatbot-restaurante-40e94"
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

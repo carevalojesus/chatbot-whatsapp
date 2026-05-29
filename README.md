@@ -1,115 +1,219 @@
-# Chatbot WhatsApp — Restaurante
+# Chatbot WhatsApp — La Curva del Paraíso
 
-Bot de pedidos para restaurante conectado a WhatsApp vía [OpenWA](https://www.open-wa.org/).
+Bot de pedidos para cevichería peruana conectado a WhatsApp vía [OpenWA](https://www.open-wa.org/) y **Firebase Firestore**.
 
 ## Qué hace
 
-- Muestra la carta del restaurante
+- Muestra la carta (ceviches, tiraditos, entradas, bebidas, etc.)
 - Guía al cliente para armar un pedido paso a paso
-- Soporta domicilio o recoger en local
-- Registra pedidos (en memoria por ahora; Firebase en fase 2)
+- Domicilio o recoger en local
+- Guarda pedidos, carta y sesiones en Firestore
+- Notifica al admin por WhatsApp cuando llega un pedido
 - Consulta de estado de pedidos
 
 ## Requisitos
 
 - Node.js 20+
 - Git
-- Google Chrome (para Puppeteer / OpenWA)
+- Google Chrome (Puppeteer / OpenWA)
+- Proyecto Firebase con **Firestore** activado
+- Firebase CLI (opcional, para reglas): `npm install -g firebase-tools`
 
-## Inicio rápido
+---
 
-### 1. Configurar variables
+## Pasos de instalación (orden completo)
+
+### 1. Clonar e instalar
 
 ```bash
+git clone git@github.com:carevalojesus/chatbot-whatsapp.git
+cd chatbot-whatsapp
 cp .env.example .env
-# Edita .env con tu API key y secret de webhook
+cd bot && npm install && cd ..
 ```
 
-### 2. Levantar OpenWA (local)
+### 2. Firebase
+
+1. [Firebase Console](https://console.firebase.google.com/) → **Project settings** → **Service accounts**
+2. **Generate new private key** → guardar como `firebase-service-account.json` en la **raíz del repo**
+3. Verificar `.env`:
+
+```env
+FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json
+FIREBASE_PROJECT_ID=chatbot-restaurante-40e94
+RESTAURANT_NAME="La Curva del Paraíso"
+RESTAURANT_ID=la-curva-del-paraiso
+RESTAURANT_ADMIN_PHONE=933240664
+DELIVERY_FEE=8
+```
+
+4. Activar **Firestore** en la consola
+5. Desplegar reglas e índices:
+
+```bash
+firebase login
+firebase deploy --only firestore:rules,firestore:indexes --project chatbot-restaurante-40e94
+```
+
+6. Cargar restaurante y carta en Firestore:
+
+```bash
+cd bot
+npm run seed:firebase
+```
+
+### 3. OpenWA (WhatsApp)
 
 ```bash
 chmod +x scripts/*.sh
 ./scripts/setup-openwa.sh
-```
-
-OpenWA corre en segundo plano en `http://localhost:2785`. Logs en `openwa-gateway/openwa.log`.
-
-### 3. Registrar webhook y conectar WhatsApp
-
-```bash
 ./scripts/register-webhook.sh
 ./scripts/show-qr.sh
 ```
 
-Escanea el QR que se guarda en `qr-whatsapp.png` con WhatsApp.
+Escanea el QR (`qr-whatsapp.png`) con el WhatsApp del **negocio** (número dedicado al bot).
 
 ### 4. Iniciar el bot
 
 ```bash
 cd bot
-npm install
 npm run dev
 ```
 
-El bot escucha en http://127.0.0.1:3000/webhook
+Verificar:
 
-### 5. Probar
+```bash
+curl http://127.0.0.1:3000/health
+# debe mostrar: "firebase": true, "restaurant": "La Curva del Paraíso"
+```
 
-Envía **Hola** desde **otro teléfono** (no desde el WhatsApp vinculado al bot).
+### 5. Probar el chatbot
+
+| ✅ Correcto | ❌ Incorrecto |
+|------------|--------------|
+| Enviar desde **otro celular** al número del bot | Enviar desde el WhatsApp vinculado al bot |
+| Escribir `Hola` y esperar 3–5 s | Repetir `Hola` muchas veces seguidas |
+
+**Flujo de prueba manual:**
+
+```
+Hola  → menú principal
+1     → carta completa
+2     → iniciar pedido
+1     → categoría Ceviches
+1     → ceviche de pescado
+1     → cantidad
+listo → continuar
+2     → recoger en local
+si    → confirmar pedido
+```
+
+**Prueba automática** (envía mensajes al admin en WhatsApp):
+
+```bash
+cd bot
+npm run test:chatbot
+```
+
+---
 
 ## Comandos útiles
 
-| Script | Descripción |
-|---|---|
+| Comando | Descripción |
+|---------|-------------|
 | `./scripts/setup-openwa.sh` | Instala y levanta OpenWA |
-| `./scripts/register-webhook.sh` | Registra el webhook del bot |
-| `./scripts/show-qr.sh` | Muestra QR para vincular WhatsApp |
+| `./scripts/register-webhook.sh` | Registra webhook (limpia duplicados) |
+| `./scripts/show-qr.sh` | QR para vincular WhatsApp |
 | `./scripts/stop-openwa.sh` | Detiene OpenWA |
+| `npm run dev` | Bot en desarrollo |
+| `npm run seed:firebase` | Sincroniza carta y datos del restaurante |
+| `npm run test:chatbot` | Prueba end-to-end y envía al admin |
 
-## Flujo del bot
+---
+
+## Firebase — estructura
 
 ```
-Hola → Menú principal
-  1 → Ver carta
-  2 → Hacer pedido → categorías → platos → cantidad → listo → domicilio/recoger → confirmar
-  3 → Estado del pedido
-  4 → Ayuda
+restaurants/
+  la-curva-del-paraiso/              # Perfil (nombre, admin, horario, domicilio)
+  la-curva-del-paraiso/menu/current  # Carta (41 platos, 8 categorías)
+  la-curva-del-paraiso/orders/{id}   # Pedidos (#1001, #1002, …)
+  la-curva-del-paraiso/sessions/{id} # Sesión del chat (carrito en curso)
+  la-curva-del-paraiso/meta/counters # Contador de pedidos
 ```
 
-Comandos globales: `hola`, `menu`, `cancelar`
+### Cambiar estado de un pedido
+
+En **Firebase Console** → Firestore → `orders` → pedido → campo `status`:
+
+| Valor | Significado |
+|-------|-------------|
+| `pendiente` | Recién llegado |
+| `confirmado` | En preparación |
+| `entregado` | Completado |
+
+El cliente consulta con la opción **3** del bot.
+
+---
 
 ## Personalizar
 
-| Archivo | Qué cambiar |
-|---|---|
-| `.env` | Nombre del restaurante, costo domicilio, API key |
-| `bot/src/menu/menu.json` | Carta (categorías, platos, precios) |
+| Dónde | Qué cambiar |
+|-------|-------------|
+| `.env` | Nombre, domicilio, teléfono admin |
+| `bot/src/menu/menu.json` | Carta base (luego `npm run seed:firebase`) |
+| Firebase `menu/current` | Carta en producción sin redeploy |
 
-## Estructura
+---
+
+## Estructura del proyecto
 
 ```
 chatbot-whatsapp/
-├── bot/                 # Backend Node.js + TypeScript
-│   └── src/
-│       ├── flows/       # Lógica del chatbot
-│       ├── menu/        # Carta JSON
-│       ├── orders/      # Almacén de pedidos (temporal)
-│       ├── session/     # Estado por usuario
-│       ├── webhook/     # Receptor + deduplicación
-│       └── openwa/      # Cliente API OpenWA
-├── scripts/             # Setup OpenWA + webhook
-└── openwa-gateway/      # Clon de OpenWA (generado por setup, gitignored)
+├── bot/src/
+│   ├── flows/          # Lógica del chatbot
+│   ├── firebase/       # Admin SDK
+│   ├── menu/           # Carta + Firestore
+│   ├── orders/         # Pedidos (Firestore / memoria)
+│   ├── session/        # Sesiones de chat
+│   ├── restaurant/     # Perfil del negocio
+│   ├── notifications/  # Aviso al admin
+│   └── webhook/        # Receptor + deduplicación
+├── scripts/            # OpenWA setup
+├── firebase.json       # Config Firebase CLI
+├── firestore.rules     # Reglas de seguridad
+└── openwa-gateway/     # OpenWA local (gitignored)
 ```
+
+---
+
+## Modo sin Firebase
+
+Si no hay `firebase-service-account.json`, el bot usa **memoria local** (pedidos se pierden al reiniciar).
+
+---
+
+## Solución de problemas
+
+| Problema | Solución |
+|----------|----------|
+| No responde a `Hola` | Verifica que el bot corre (`npm run dev`) y OpenWA está `ready` |
+| Responde una vez y luego no | Reinicia el bot; no envíes el mismo mensaje en ráfaga |
+| Webhook no llega | Ejecuta `./scripts/register-webhook.sh` de nuevo |
+| `firebase: false` en `/health` | Revisa ruta del JSON y `FIREBASE_PROJECT_ID` en `.env` |
+| QR no conecta | `./scripts/show-qr.sh` y escanea de nuevo |
+
+---
 
 ## Próximos pasos
 
-- [ ] Conectar Firebase Firestore para carta y pedidos
-- [ ] Notificar al restaurante cuando llega un pedido
-- [ ] Integrar IA para preguntas libres
+- [ ] Comandos admin por WhatsApp (`/confirmar 1001`)
 - [ ] Panel web para gestionar pedidos
+- [ ] IA para preguntas libres
 
 ## Notas
 
-- OpenWA usa WhatsApp Web (no oficial). Usa un número dedicado.
-- Los pedidos se pierden al reiniciar el bot (hasta conectar Firebase).
-- El webhook debe usar `127.0.0.1`, no `localhost` (OpenWA lo rechaza).
+- OpenWA usa WhatsApp Web (no oficial). Usa un número dedicado al negocio.
+- El admin (`933240664`) recibe WhatsApp con cada pedido nuevo.
+- El webhook debe usar `127.0.0.1`, no `localhost`.
+- **Nunca subas** `firebase-service-account.json` ni `.env` a GitHub.
