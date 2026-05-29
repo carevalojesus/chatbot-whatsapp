@@ -23,6 +23,7 @@ function mapOrder(id: string, data: DocumentData): Order {
     paymentMethod: data.paymentMethod,
     cashPaid: data.cashPaid,
     changeDue: data.changeDue,
+    paymentProofReceived: data.paymentProofReceived,
     subtotal: data.subtotal,
     deliveryFee: data.deliveryFee,
     total: data.total,

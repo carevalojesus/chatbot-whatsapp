@@ -23,6 +23,7 @@ export interface Order {
   paymentMethod?: PaymentMethod;
   cashPaid?: number;
   changeDue?: number;
+  paymentProofReceived?: boolean;
   subtotal: number;
   deliveryFee: number;
   total: number;

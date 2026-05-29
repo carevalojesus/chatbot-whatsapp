@@ -108,6 +108,10 @@ export function handleOrderBack(
         return formatChooseDeliveryPrompt(session);
       }
       return openCartMenu(session);
+    case "await_payment_proof":
+      session.state = "choose_payment";
+      session.paymentProofReceived = undefined;
+      return openCartMenu(session);
     default:
       return goToCategories(session);
   }

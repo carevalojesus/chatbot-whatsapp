@@ -137,6 +137,11 @@ async function run(): Promise<void> {
     {
       label: "1 → Yape",
       text: "1",
+      expect: (r) => assertIncludes(r, "captura", "comprobante pago"),
+    },
+    {
+      label: "listo → confirmar sin captura",
+      text: "listo",
       expect: (r) => assertIncludes(r, "Confirma", "confirmación"),
     },
     {

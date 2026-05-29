@@ -108,10 +108,13 @@ Hola  → menú principal
 2     → continuar con el pedido
 2     → recoger en local
 1     → Yape (u otro método de pago)
+listo → confirmar pago (o envía captura como imagen)
 si    → confirmar pedido
 ```
 
-**Atajos durante el pedido:** `9` ver carrito · `continuar` pasar al pago (si hay platos) · `0` volver · `cancelar` abortar.
+**Otros atajos:** `repetir` (último pedido) · `9` carrito · `0` volver · `cancelar` abortar.
+
+Fuera del horario configurado solo puedes ver la carta; los pedidos se bloquean automáticamente.
 
 **Prueba automática** (simula el flujo completo con aserciones; no usa WhatsApp del cliente):
 
@@ -139,6 +142,7 @@ npm run test:chatbot:notify
 | `./scripts/start-production.sh` | OpenWA + bot compilado con PM2 (24/7) |
 | `./scripts/stop-production.sh` | Detiene bot (PM2) y OpenWA |
 | `./scripts/status-production.sh` | Estado de OpenWA, bot y PM2 |
+| `./scripts/watch-openwa.sh` | Reinicia OpenWA si la API no responde |
 | `npm run dev` | Bot en desarrollo (bot/) |
 | `npm run build && npm start` | Bot en producción sin PM2 |
 | `npm run seed:firebase` | Sincroniza carta y datos del restaurante |
@@ -176,6 +180,18 @@ curl http://127.0.0.1:3000/health
 - Si reinicias el servidor, puede hacer falta `./scripts/show-qr.sh` si WhatsApp desvinculó la sesión.
 - En un VPS remoto necesitas acceso gráfico o VNC para escanear el QR la primera vez.
 - Tras cambios de código: `cd bot && npm run build && pm2 restart chatbot-bot`.
+
+### Reglas de negocio (`.env`)
+
+| Variable | Qué hace |
+|----------|----------|
+| `RESTAURANT_ENFORCE_HOURS` | Bloquea pedidos fuera de horario |
+| `RESTAURANT_CLOSED_DAYS` | Días cerrados (0=dom … 6=sáb) |
+| `RESTAURANT_OPEN_TIME` / `CLOSE_TIME` | Ventana de atención |
+| `RESTAURANT_VALIDATE_DELIVERY_ZONE` | Valida distrito en dirección |
+| `RESTAURANT_DELIVERY_KEYWORDS` | Palabras permitidas (surco, miraflores…) |
+| `RESTAURANT_YAPE_PHONE` / `PLIN_PHONE` | Números en pantalla de pago |
+| `OPS_WATCHDOG_ENABLED` | Auto-recuperación de sesión OpenWA |
 
 ---
 
@@ -294,6 +310,10 @@ Si no hay `firebase-service-account.json`, el bot usa **memoria local** (pedidos
 - [x] Comprobante PDF con QR y validación `/validar`
 - [x] Flujo de pedido refactorizado (carrito, navegación, expiración por inactividad)
 - [x] Scripts PM2 para producción 24/7
+- [x] Horario de atención y validación de zona de domicilio
+- [x] Comprobante de pago (Yape/Plin) + captura por imagen
+- [x] Repetir último pedido (`repetir`)
+- [x] Watchdog OpenWA + health check ampliado
 - [ ] Panel web para gestionar pedidos
 - [ ] IA para preguntas libres
 

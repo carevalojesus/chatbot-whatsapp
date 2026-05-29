@@ -2,19 +2,30 @@ import express from "express";
 import { config } from "./config.js";
 import { initFirebase, isFirebaseEnabled } from "./firebase/admin.js";
 import { loadMenu } from "./menu/data.js";
+import { checkOpenWaHealth } from "./ops/openwaHealth.js";
+import { startOpsWatchdog } from "./ops/watchdog.js";
 import { loadRestaurantProfile } from "./restaurant/profile.js";
 import { handleWebhook, logWebhookReady } from "./webhook/handler.js";
 import { startIdleSessionWatcher } from "./session/idleWatcher.js";
 
 const app = express();
 
-app.get("/health", (_req, res) => {
+app.get("/health", async (_req, res) => {
+  const openwa = await checkOpenWaHealth();
   res.json({
-    ok: true,
+    ok: openwa.ok,
     restaurant: config.restaurant.name,
     openwaConfigured: Boolean(config.openwa.apiKey),
+    openwa: {
+      ok: openwa.ok,
+      api: openwa.api,
+      sessionReady: openwa.sessionReady,
+      status: openwa.status,
+      reason: openwa.reason,
+    },
     sessionId: config.openwa.sessionId || null,
     firebase: isFirebaseEnabled(),
+    watchdog: config.ops.watchdogEnabled,
   });
 });
 
@@ -66,6 +77,7 @@ async function bootstrap(): Promise<void> {
   app.listen(config.port, () => {
     logWebhookReady();
     startIdleSessionWatcher();
+    startOpsWatchdog();
     console.log(`API Key configurada: ${config.openwa.apiKey ? "sí" : "no"}`);
   });
 }

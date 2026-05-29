@@ -7,7 +7,11 @@ import {
   isDuplicateEvent,
 } from "./dedupe.js";
 import { handleAdminCommand, getAdminHelpText, isExplicitAdminCommand } from "../flows/adminFlow.js";
-import { handleIncomingMessage } from "../flows/orderFlow.js";
+import {
+  formatNonTextReply,
+  handleIncomingMedia,
+  handleIncomingMessage,
+} from "../flows/orderFlow.js";
 import { sendTextMessage } from "../openwa/client.js";
 import { isAdminChatId, rememberAdminChatId } from "../restaurant/profile.js";
 import { verifyWebhookSignature } from "./verify.js";
@@ -32,6 +36,18 @@ export interface MessageReceivedPayload {
     };
   };
 }
+
+const MEDIA_TYPES = new Set([
+  "image",
+  "document",
+  "audio",
+  "ptt",
+  "video",
+  "sticker",
+  "location",
+  "vcard",
+  "contact",
+]);
 
 export async function handleWebhook(
   rawBody: string,
@@ -61,8 +77,11 @@ export async function handleWebhook(
     return { status: 200, body: "OK" };
   }
 
-  const text = data.body?.trim();
-  if (!text) {
+  const messageType = (data.type ?? "chat").toLowerCase();
+  const text = data.body?.trim() ?? "";
+  const customerName = data.contact?.pushName ?? data.contact?.name;
+
+  if (!text && !MEDIA_TYPES.has(messageType)) {
     return { status: 200, body: "OK" };
   }
 
@@ -71,7 +90,7 @@ export async function handleWebhook(
     deliveryIdHeader ?? payload.deliveryId,
     data.id,
     data.from,
-    text,
+    text || `[${messageType}]`,
   );
 
   if (isDuplicateEvent(dedupeKey)) {
@@ -79,24 +98,24 @@ export async function handleWebhook(
     return { status: 200, body: "OK" };
   }
 
-  if (isDuplicateCrossChannel(text)) {
+  if (text && isDuplicateCrossChannel(text)) {
     console.log(`Mensaje duplicado ignorado (cross: "${text}")`);
     return { status: 200, body: "OK" };
   }
 
-  if (isDuplicateBurst(data.from, text)) {
+  if (text && isDuplicateBurst(data.from, text)) {
     console.log(`Mensaje duplicado ignorado (burst: "${text}")`);
     return { status: 200, body: "OK" };
   }
 
-  console.log(`Mensaje de ${data.from}: "${text}"`);
-
-  const customerName = data.contact?.pushName ?? data.contact?.name;
+  console.log(
+    `Mensaje de ${data.from} (${messageType}): "${text || "[media]"}"`,
+  );
 
   if (isAdminChatId(data.from)) {
     rememberAdminChatId(data.from);
 
-    if (isExplicitAdminCommand(text)) {
+    if (text && isExplicitAdminCommand(text)) {
       const adminResult = await handleAdminCommand(text, data.from);
       if (adminResult) {
         await sendTextMessage(data.from, adminResult.reply);
@@ -117,7 +136,7 @@ export async function handleWebhook(
         return { status: 200, body: "OK" };
       }
     }
-  } else if (isExplicitAdminCommand(text)) {
+  } else if (text && isExplicitAdminCommand(text)) {
     console.warn(`Comando admin no autorizado desde ${data.from}`);
     await sendTextMessage(
       data.from,
@@ -126,7 +145,20 @@ export async function handleWebhook(
     return { status: 200, body: "OK" };
   }
 
-  const reply = await handleIncomingMessage(data.from, text, customerName);
+  let reply: string;
+
+  if (
+    !text &&
+    (messageType === "image" || messageType === "document")
+  ) {
+    reply = await handleIncomingMedia(data.from, messageType, customerName);
+  } else if (!text && MEDIA_TYPES.has(messageType)) {
+    reply = formatNonTextReply(messageType);
+  } else if (text) {
+    reply = await handleIncomingMessage(data.from, text, customerName);
+  } else {
+    return { status: 200, body: "OK" };
+  }
 
   if (reply) {
     try {

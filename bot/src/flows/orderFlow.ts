@@ -12,6 +12,7 @@ import {
 } from "./orderPrompts.js";
 import {
   handleAfterAddToCart,
+  handleAwaitPaymentProof,
   handleBrowseCategories,
   handleBrowseItems,
   handleCartMenu,
@@ -22,8 +23,12 @@ import {
   handleEnterCashAmount,
   handleEnterQuantity,
   handleSaveAddressPrompt,
+  markPaymentProofFromImage,
 } from "./orderFlowOrder.js";
+import { buildPaymentProofPrompt } from "./paymentProof.js";
+import { tryRepeatLastOrder } from "./reorder.js";
 import { resumePromptForState } from "./orderNavigation.js";
+import { isRestaurantOpen, closedOrderBlockMessage } from "../restaurant/hours.js";
 import {
   cancelOrder,
   createOrder,
@@ -95,6 +100,7 @@ function helpText(): string {
   return `ℹ️ *Ayuda*
 
 • *hola* o *menu* → volver al inicio
+• *repetir* → volver a pedir lo último
 • Durante un pedido:
   · *9* o *carrito* → ver tu carrito
   · *continuar* → pasar al pago (si ya tienes platos)
@@ -104,7 +110,55 @@ function helpText(): string {
 • Pedidos *pendientes* se cancelan en *Mis pedidos*
 
 Horario: ${profile.schedule}
-Domicilio: ${profile.deliveryZone}`;
+Domicilio: ${profile.deliveryZone}
+Fuera de horario solo puedes ver la carta.`;
+}
+
+export async function handleIncomingMedia(
+  chatId: string,
+  messageType: string,
+  customerName?: string,
+): Promise<string> {
+  const session = await getSessionForChat(chatId);
+  if (customerName) {
+    session.whatsappName = customerName;
+  }
+
+  if (
+    session.state === "await_payment_proof" &&
+    (messageType === "image" || messageType === "document")
+  ) {
+    const prefix = markPaymentProofFromImage(session);
+    touchSession(session);
+    await saveSession(session);
+    return `${prefix}${buildOrderConfirmation(session)}`;
+  }
+
+  return formatNonTextReply(messageType, session.state);
+}
+
+export function formatNonTextReply(
+  messageType: string,
+  state?: UserSession["state"],
+): string {
+  if (state === "await_payment_proof") {
+    return `📸 Envía una *captura de pantalla* (imagen) del pago, o escribe *listo* si ya pagaste.`;
+  }
+
+  const label =
+    messageType === "audio" || messageType === "ptt"
+      ? "audios"
+      : messageType === "video"
+        ? "videos"
+        : messageType === "sticker"
+          ? "stickers"
+          : messageType === "location"
+            ? "ubicaciones"
+            : "ese tipo de mensaje";
+
+  return `⚠️ Por ahora solo entiendo *texto* e *imágenes* (para comprobantes de pago).
+
+No puedo procesar ${label}. Escribe tu mensaje o el *número* de la opción.`;
 }
 
 export async function handleIncomingMessage(
@@ -245,6 +299,16 @@ export async function handleIncomingMessage(
           buildChoosePaymentPrompt,
           buildEnterCashPrompt,
           buildOrderConfirmation,
+          buildPaymentProofPromptForSession,
+        );
+        break;
+      case "await_payment_proof":
+        reply = handleAwaitPaymentProof(
+          session,
+          text,
+          buildChoosePaymentPrompt,
+          buildPaymentProofPromptForSession,
+          buildOrderConfirmation,
         );
         break;
       case "enter_cash_amount":
@@ -291,6 +355,12 @@ export async function handleIncomingMessage(
       case "register_name": {
         const regResult = await handleRegistrationFlow(session, text);
         if (regResult.continueOrder) {
+          const openStatus = isRestaurantOpen();
+          if (!openStatus.open) {
+            session.state = "main_menu";
+            reply = openStatus.message ?? closedOrderBlockMessage();
+            break;
+          }
           session.state = "browse_categories";
           const intro = regResult.reply ? `${regResult.reply}\n\n` : "";
           reply = `${intro}${formatBrowseCategoriesPrompt(session)}`;
@@ -368,6 +438,8 @@ async function buildResumePrompt(session: UserSession): Promise<string> {
         : formatChooseDeliveryPrompt(session);
     case "choose_payment":
       return buildChoosePaymentPrompt(session);
+    case "await_payment_proof":
+      return buildPaymentProofPromptForSession(session);
     case "enter_cash_amount":
       return buildEnterCashPrompt(session);
     case "confirm_order":
@@ -461,7 +533,21 @@ function isGlobalCommand(text: string): boolean {
   return ["hola", "menu", "inicio", "start", "hi", "hello"].includes(text);
 }
 
+function buildPaymentProofPromptForSession(session: UserSession): string {
+  return buildPaymentProofPrompt(session, calculateOrderTotal(session));
+}
+
 async function handleMainMenu(session: UserSession, text: string): Promise<string> {
+  const normalized = normalizeText(text);
+
+  if (normalized === "repetir") {
+    const repeated = await tryRepeatLastOrder(session);
+    if (repeated) {
+      return repeated;
+    }
+    return `No tienes pedidos anteriores para repetir.\n\n${mainMenu()}`;
+  }
+
   const choice = parseChoice(text, 5);
   if (!choice) {
     return `No entendí esa opción.\n\n${mainMenu()}`;
@@ -471,7 +557,11 @@ async function handleMainMenu(session: UserSession, text: string): Promise<strin
     case 1:
       session.state = "view_menu_categories";
       return formatMenuOverview(getMenu().categories);
-    case 2:
+    case 2: {
+      const openStatus = isRestaurantOpen();
+      if (!openStatus.open) {
+        return openStatus.message ?? closedOrderBlockMessage();
+      }
       if (await shouldPromptRegistration(session.chatId)) {
         session.pendingAction = "order";
         session.state = "register_prompt";
@@ -479,6 +569,7 @@ async function handleMainMenu(session: UserSession, text: string): Promise<strin
       }
       session.state = "browse_categories";
       return formatBrowseCategoriesPrompt(session);
+    }
     case 3:
       session.state = "check_order_status";
       return await formatOrderStatusList(session.chatId);
@@ -500,6 +591,10 @@ function handleViewMenuCategories(session: UserSession, text: string): string {
   }
 
   if (normalized === "2" || normalized === "pedir" || normalized === "pedido") {
+    const openStatus = isRestaurantOpen();
+    if (!openStatus.open) {
+      return openStatus.message ?? closedOrderBlockMessage();
+    }
     session.state = "browse_categories";
     return formatBrowseCategoriesPrompt(session);
   }
@@ -529,6 +624,10 @@ function handleViewMenuItems(session: UserSession, text: string): string {
   }
 
   if (normalized === "2" || normalized === "pedir" || normalized === "pedido") {
+    const openStatus = isRestaurantOpen();
+    if (!openStatus.open) {
+      return openStatus.message ?? closedOrderBlockMessage();
+    }
     session.state = "browse_categories";
     return formatBrowseCategoriesPrompt(session);
   }
@@ -584,6 +683,7 @@ async function handleConfirmOrder(
     paymentMethod: session.paymentMethod,
     cashPaid: session.cashPaid,
     changeDue: session.changeDue,
+    paymentProofReceived: session.paymentProofReceived,
     subtotal,
     deliveryFee,
     total: subtotal + deliveryFee,

@@ -30,6 +30,8 @@ ${customer}${items}
 
 ${deliveryLine}
 ${order.paymentMethod ? `\n${formatPaymentDetail(order.paymentMethod, order.cashPaid, order.changeDue)}` : ""}
+${order.paymentProofReceived === false && order.paymentMethod && order.paymentMethod !== "efectivo" ? "\n⚠️ *Sin captura de pago* — verificar antes de preparar." : ""}
+${order.paymentProofReceived ? "\n✅ Cliente envió comprobante de pago." : ""}
 Total: *${formatCurrency(order.total)}*
 Estado: pendiente
 

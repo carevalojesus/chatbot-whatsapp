@@ -5,8 +5,10 @@ import {
   formatSavedAddressChoice,
   handleChooseSavedAddress,
 } from "../flows/profileFlow.js";
+import { validateDeliveryAddress } from "../restaurant/deliveryZone.js";
 import type { PaymentMethod } from "../orders/types.js";
 import type { UserSession } from "../session/types.js";
+import { buildPaymentProofPrompt } from "./paymentProof.js";
 import { normalizeText, parseAmount, parseChoice } from "../utils/format.js";
 import { formatCurrency } from "../utils/format.js";
 import {
@@ -266,7 +268,12 @@ export async function handleChooseSavedAddressFlow(
   }
 
   const reply = await handleChooseSavedAddress(session, text);
-  if (session.state === "choose_payment") {
+  if (session.state === "choose_payment" && session.address) {
+    const zoneCheck = validateDeliveryAddress(session.address);
+    if (!zoneCheck.valid) {
+      session.state = "choose_saved_address";
+      return zoneCheck.message!;
+    }
     return reply || buildPaymentPrompt(session);
   }
   return reply;
@@ -285,6 +292,11 @@ export function handleEnterAddress(
   const address = text.trim();
   if (address.length < 8) {
     return "Escribe una dirección más completa (mínimo 8 caracteres).\n\n*0* ← volver";
+  }
+
+  const zoneCheck = validateDeliveryAddress(address);
+  if (!zoneCheck.valid) {
+    return `${zoneCheck.message}\n\n*0* ← volver`;
   }
 
   session.address = address;
@@ -333,6 +345,7 @@ export function handleChoosePayment(
   buildPaymentPrompt: PaymentPromptBuilder,
   buildCashPrompt: PaymentPromptBuilder,
   buildConfirmation: PaymentPromptBuilder,
+  buildProofPrompt: PaymentPromptBuilder,
 ): string {
   const normalized = normalizeText(text);
   if (normalized === "0") {
@@ -363,8 +376,44 @@ export function handleChoosePayment(
 
   session.cashPaid = undefined;
   session.changeDue = undefined;
+  session.paymentProofReceived = undefined;
+  session.state = "await_payment_proof";
+  return buildProofPrompt(session);
+}
+
+export function handleAwaitPaymentProof(
+  session: UserSession,
+  text: string,
+  buildPaymentPrompt: PaymentPromptBuilder,
+  buildProofPrompt: PaymentPromptBuilder,
+  buildConfirmation: PaymentPromptBuilder,
+): string {
+  const normalized = normalizeText(text);
+
+  if (normalized === "0") {
+    session.state = "choose_payment";
+    session.paymentProofReceived = undefined;
+    return buildPaymentPrompt(session);
+  }
+
+  const choice = parseChoice(text, 2);
+  if (choice === 2 || normalized === "listo") {
+    session.paymentProofReceived = false;
+    session.state = "confirm_order";
+    return buildConfirmation(session);
+  }
+
+  if (choice === 1) {
+    return `📸 Envía la *captura de pantalla* del pago como imagen por WhatsApp.\n\n${buildProofPrompt(session)}`;
+  }
+
+  return `Responde *1*, envía captura, o escribe *listo*.\n\n${buildProofPrompt(session)}`;
+}
+
+export function markPaymentProofFromImage(session: UserSession): string {
+  session.paymentProofReceived = true;
   session.state = "confirm_order";
-  return buildConfirmation(session);
+  return "✅ Comprobante recibido.\n\n";
 }
 
 export function handleEnterCashAmount(

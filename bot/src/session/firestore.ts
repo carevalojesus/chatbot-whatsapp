@@ -37,6 +37,7 @@ function mapSession(data: DocumentData): UserSession {
     paymentMethod: data.paymentMethod,
     cashPaid: data.cashPaid,
     changeDue: data.changeDue,
+    paymentProofReceived: data.paymentProofReceived,
     selectedOrderId: data.selectedOrderId,
     pendingAddressAlias: data.pendingAddressAlias,
     pendingAddressLine: data.pendingAddressLine,

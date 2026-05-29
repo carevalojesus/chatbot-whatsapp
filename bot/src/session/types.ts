@@ -14,6 +14,7 @@ export type BotState =
   | "enter_address"
   | "save_address_prompt"
   | "choose_payment"
+  | "await_payment_proof"
   | "enter_cash_amount"
   | "confirm_order"
   | "check_order_status"
@@ -48,6 +49,7 @@ export interface UserSession {
   paymentMethod?: PaymentMethod;
   cashPaid?: number;
   changeDue?: number;
+  paymentProofReceived?: boolean;
   selectedOrderId?: string;
   pendingAddressAlias?: string;
   pendingAddressLine?: string;
@@ -82,6 +84,7 @@ export function clearSessionFields(session: UserSession): UserSession {
   session.paymentMethod = undefined;
   session.cashPaid = undefined;
   session.changeDue = undefined;
+  session.paymentProofReceived = undefined;
   session.selectedOrderId = undefined;
   session.pendingAddressAlias = undefined;
   session.pendingAddressLine = undefined;
@@ -106,6 +109,7 @@ export function isOrderingState(state: BotState): boolean {
     "enter_address",
     "save_address_prompt",
     "choose_payment",
+    "await_payment_proof",
     "enter_cash_amount",
     "confirm_order",
   ].includes(state);
@@ -121,6 +125,7 @@ export function clearOrderingFields(session: UserSession): void {
   session.paymentMethod = undefined;
   session.cashPaid = undefined;
   session.changeDue = undefined;
+  session.paymentProofReceived = undefined;
   session.pendingAddressAlias = undefined;
   session.pendingAddressLine = undefined;
   session.cartReturnState = undefined;
